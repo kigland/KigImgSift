@@ -270,13 +270,10 @@ func getImage(c *gin.Context) {
 //	@Success		200	{object}	Config
 //	@Router			/config [get]
 func getConfig(c *gin.Context) {
-	copyMode := viper.GetBool("copyMode")
-	fmt.Printf("DEBUG: copyMode from viper: %v\n", copyMode)
 	config := Config{
 		SourceDir:    viper.GetString("sourceDir"),
 		Categories:   getCategories(),
 		SkipShortcut: viper.GetString("skipShortcut"),
-		CopyMode:     copyMode,
 	}
 	c.JSON(http.StatusOK, config)
 }
@@ -302,7 +299,6 @@ func updateConfig(c *gin.Context) {
 	viper.Set("sourceDir", config.SourceDir)
 	viper.Set("categories", config.Categories)
 	viper.Set("skipShortcut", config.SkipShortcut)
-	viper.Set("copyMode", config.CopyMode)
 
 	// Save to file
 	saveConfig()
@@ -311,28 +307,6 @@ func updateConfig(c *gin.Context) {
 	createOutputDirs()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Configuration updated successfully"})
-}
-
-// copyFile handles file copying with cross-filesystem support
-func copyFile(sourcePath, targetPath string) error {
-	sourceFile, err := os.Open(sourcePath)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %v", err)
-	}
-	defer sourceFile.Close()
-
-	targetFile, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("failed to create target file: %v", err)
-	}
-	defer targetFile.Close()
-
-	_, err = io.Copy(targetFile, sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy file: %v", err)
-	}
-
-	return nil
 }
 
 // moveFile handles file moving with cross-filesystem support
@@ -460,30 +434,19 @@ func moveImage(c *gin.Context) {
 		}
 	}
 
-	// Move or copy the file based on configuration
-	copyMode := viper.GetBool("copyMode")
-	var err error
-	var operation string
-
-	if copyMode {
-		err = copyFile(sourcePath, finalTargetPath)
-		operation = "copied"
-	} else {
-		err = moveFile(sourcePath, finalTargetPath)
-		operation = "moved"
-	}
-
+	// Move the file
+	err := moveFile(sourcePath, finalTargetPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, MoveResponse{
 			Success: false,
-			Message: fmt.Sprintf("Failed to %s file: %v", operation, err),
+			Message: fmt.Sprintf("Failed to move file: %v", err),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, MoveResponse{
 		Success: true,
-		Message: fmt.Sprintf("File %s to %s", operation, targetCategory.Name),
+		Message: fmt.Sprintf("File moved to %s", targetCategory.Name),
 	})
 }
 

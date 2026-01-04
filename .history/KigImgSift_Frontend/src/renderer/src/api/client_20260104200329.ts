@@ -2,7 +2,7 @@
 const API_BASE_URL = 'http://localhost:12346/api';
 
 export interface ImageListResponse {
-  images: string[];
+  images: string[] | null;
 }
 
 export interface ConfigResponse {
@@ -14,7 +14,6 @@ export interface ConfigResponse {
     shortcut: string;
   }>;
   skipShortcut: string;
-  copyMode: boolean;
 }
 
 export interface MoveRequest {
@@ -62,7 +61,7 @@ export class ApiClient {
   }
 
   static async getImageBlob(path: string): Promise<Blob> {
-    const url = `${API_BASE_URL}/files/image?path=${encodeURIComponent(path)}`;
+    const url = `${API_BASE_URL}/image?path=${encodeURIComponent(path)}`;
     console.log('ApiClient.getImageBlob: Starting request to:', url);
     try {
       const response = await fetch(url);

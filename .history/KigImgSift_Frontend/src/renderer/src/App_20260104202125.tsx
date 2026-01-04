@@ -104,7 +104,7 @@ function App(): React.JSX.Element {
             onClick={() => setShowSettings(true)}
             className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
-            设置
+            Settings
           </button>
         </div>
       </div>

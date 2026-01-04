@@ -98,13 +98,13 @@ function App(): React.JSX.Element {
             onClick={loadImages}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            刷新
+            Refresh
           </button>
           <button
             onClick={() => setShowSettings(true)}
             className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
-            设置
+            Settings
           </button>
         </div>
       </div>

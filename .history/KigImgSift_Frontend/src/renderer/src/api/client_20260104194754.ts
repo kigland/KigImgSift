@@ -2,7 +2,7 @@
 const API_BASE_URL = 'http://localhost:12346/api';
 
 export interface ImageListResponse {
-  images: string[];
+  images: string[] | null;
 }
 
 export interface ConfigResponse {
@@ -14,7 +14,6 @@ export interface ConfigResponse {
     shortcut: string;
   }>;
   skipShortcut: string;
-  copyMode: boolean;
 }
 
 export interface MoveRequest {
@@ -40,9 +39,9 @@ export interface UndoResponse {
 
 export class ApiClient {
   static async getImages(): Promise<string[]> {
-    console.log('ApiClient.getImages: Starting request to:', `${API_BASE_URL}/files/list`);
+    console.log('ApiClient.getImages: Starting request to:', `${API_BASE_URL}/images`);
     try {
-      const response = await fetch(`${API_BASE_URL}/files/list`);
+      const response = await fetch(`${API_BASE_URL}/images`);
       console.log('ApiClient.getImages: Response status:', response.status, response.statusText);
       console.log('ApiClient.getImages: Response headers:', Object.fromEntries(response.headers.entries()));
 
@@ -62,7 +61,7 @@ export class ApiClient {
   }
 
   static async getImageBlob(path: string): Promise<Blob> {
-    const url = `${API_BASE_URL}/files/image?path=${encodeURIComponent(path)}`;
+    const url = `${API_BASE_URL}/image?path=${encodeURIComponent(path)}`;
     console.log('ApiClient.getImageBlob: Starting request to:', url);
     try {
       const response = await fetch(url);
@@ -84,11 +83,11 @@ export class ApiClient {
     }
   }
 
-  static async moveImage(filename: string, categoryId: string): Promise<MoveResponse> {
-    const url = `${API_BASE_URL}/action/move`;
+  static async moveImage(filename: string, targetType: 'frontal' | 'side'): Promise<MoveResponse> {
+    const url = `${API_BASE_URL}/move`;
     const requestBody = JSON.stringify({
       filename,
-      categoryId,
+      targetType,
     } as MoveRequest);
 
     console.log('ApiClient.moveImage: Starting POST request to:', url, 'with body:', requestBody);
@@ -115,93 +114,6 @@ export class ApiClient {
       return result;
     } catch (error) {
       console.error('ApiClient.moveImage: Network or parsing error for filename', filename, ':', error);
-      throw error;
-    }
-  }
-
-  static async undoMove(filename: string, fromPath: string, toPath: string): Promise<UndoResponse> {
-    const url = `${API_BASE_URL}/action/undo`;
-    const requestBody = JSON.stringify({
-      filename,
-      fromPath,
-      toPath,
-    } as UndoRequest);
-
-    console.log('ApiClient.undoMove: Starting POST request to:', url, 'with body:', requestBody);
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      });
-
-      console.log('ApiClient.undoMove: Response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('ApiClient.undoMove: Response not ok. Status:', response.status, 'Body:', errorText);
-        throw new Error(`Failed to undo move: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('ApiClient.undoMove: Success, response:', result);
-      return result;
-    } catch (error) {
-      console.error('ApiClient.undoMove: Network or parsing error for filename', filename, ':', error);
-      throw error;
-    }
-  }
-
-  static async getConfig(): Promise<ConfigResponse> {
-    const url = `${API_BASE_URL}/config`;
-    console.log('ApiClient.getConfig: Starting GET request to:', url);
-
-    try {
-      const response = await fetch(url);
-      console.log('ApiClient.getConfig: Response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('ApiClient.getConfig: Response not ok. Status:', response.status, 'Body:', errorText);
-        throw new Error(`Failed to get config: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('ApiClient.getConfig: Success, config:', result);
-      return result;
-    } catch (error) {
-      console.error('ApiClient.getConfig: Network or parsing error:', error);
-      throw error;
-    }
-  }
-
-  static async updateConfig(config: ConfigResponse): Promise<void> {
-    const url = `${API_BASE_URL}/config`;
-    const requestBody = JSON.stringify(config);
-
-    console.log('ApiClient.updateConfig: Starting POST request to:', url, 'with body:', requestBody);
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      });
-
-      console.log('ApiClient.updateConfig: Response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('ApiClient.updateConfig: Response not ok. Status:', response.status, 'Body:', errorText);
-        throw new Error(`Failed to update config: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      console.log('ApiClient.updateConfig: Success');
-    } catch (error) {
-      console.error('ApiClient.updateConfig: Network or parsing error:', error);
       throw error;
     }
   }

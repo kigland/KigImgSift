@@ -1,0 +1,13 @@
+copyMode: false
+categories:
+    - id: frontal
+      name: 正脸
+      path: ../output/frontal
+      shortcut: "1"
+    - id: side
+      name: 侧脸
+      path: ../output/side
+      shortcut: "2"
+port: :12346
+skipshortcut: ' '
+sourcedir: ../source_images

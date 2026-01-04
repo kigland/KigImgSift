@@ -270,13 +270,10 @@ func getImage(c *gin.Context) {
 //	@Success		200	{object}	Config
 //	@Router			/config [get]
 func getConfig(c *gin.Context) {
-	copyMode := viper.GetBool("copyMode")
-	fmt.Printf("DEBUG: copyMode from viper: %v\n", copyMode)
 	config := Config{
 		SourceDir:    viper.GetString("sourceDir"),
 		Categories:   getCategories(),
 		SkipShortcut: viper.GetString("skipShortcut"),
-		CopyMode:     copyMode,
 	}
 	c.JSON(http.StatusOK, config)
 }
@@ -302,7 +299,6 @@ func updateConfig(c *gin.Context) {
 	viper.Set("sourceDir", config.SourceDir)
 	viper.Set("categories", config.Categories)
 	viper.Set("skipShortcut", config.SkipShortcut)
-	viper.Set("copyMode", config.CopyMode)
 
 	// Save to file
 	saveConfig()

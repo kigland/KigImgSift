@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Toaster } from 'react-hot-toast';
 import { useSorterStore } from './store/useSorterStore';
 import { TopBar } from './components/TopBar';
 import { ImageViewer } from './components/ImageViewer';
@@ -66,7 +67,7 @@ function App(): React.JSX.Element {
   if (loading && imageList.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-xl text-gray-600">正在加载图片...</div>
+        <div className="text-xl text-gray-600">Loading images...</div>
       </div>
     );
   }
@@ -79,7 +80,7 @@ function App(): React.JSX.Element {
           onClick={loadImages}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          重试
+          Retry
         </button>
       </div>
     );
@@ -89,22 +90,22 @@ function App(): React.JSX.Element {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
         <div className="text-xl text-gray-600 mb-4 text-center">
-          在源文件夹中未找到图片。
+          No images found in source directory.
           <br />
-          请将图片添加到: {config.sourceDir}
+          Please add images to: {config.sourceDir}
         </div>
         <div className="flex gap-4">
           <button
             onClick={loadImages}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            刷新
+            Refresh
           </button>
           <button
             onClick={() => setShowSettings(true)}
             className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
-            设置
+            Settings
           </button>
         </div>
       </div>
@@ -113,6 +114,7 @@ function App(): React.JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
+      <Toaster position="top-right" />
       <TopBar
         sourceDir={config.sourceDir}
         progress={progress}

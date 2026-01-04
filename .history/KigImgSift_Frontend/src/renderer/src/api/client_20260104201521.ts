@@ -2,7 +2,7 @@
 const API_BASE_URL = 'http://localhost:12346/api';
 
 export interface ImageListResponse {
-  images: string[];
+  images: string[] | null;
 }
 
 export interface ConfigResponse {
