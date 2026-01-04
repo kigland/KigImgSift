@@ -44,52 +44,29 @@ function App(): React.JSX.Element {
   }, [currentIndex, images, loading]);
 
   const loadImages = async () => {
-    console.log('App.loadImages: Starting to load images...');
     try {
       setLoading(true);
       setError('');
-      console.log('App.loadImages: Calling ApiClient.getImages()...');
       const imageList = await ApiClient.getImages();
-      console.log('App.loadImages: Received image list:', imageList);
-      // Ensure we always have an array, even if API returns null
-      const safeImageList = imageList || [];
-      setImages(safeImageList);
+      setImages(imageList);
       setCurrentIndex(0);
-      console.log('App.loadImages: Successfully set images and currentIndex');
     } catch (err) {
-      console.error('App.loadImages: Error occurred:', err);
-      console.error('App.loadImages: Error type:', typeof err);
-      console.error('App.loadImages: Error message:', err instanceof Error ? err.message : String(err));
-      console.error('App.loadImages: Error stack:', err instanceof Error ? err.stack : 'No stack trace');
       setError('Failed to load images. Make sure the backend is running.');
       console.error('Failed to load images:', err);
     } finally {
       setLoading(false);
-      console.log('App.loadImages: Finished loading, setting loading to false');
     }
   };
 
   const loadCurrentImage = async () => {
-    if (currentIndex >= images.length) {
-      console.log('App.loadCurrentImage: currentIndex >= images.length, skipping');
-      return;
-    }
-
-    const filename = images[currentIndex];
-    console.log('App.loadCurrentImage: Loading image at index', currentIndex, 'filename:', filename);
+    if (currentIndex >= images.length) return;
 
     try {
-      console.log('App.loadCurrentImage: Calling ApiClient.getImageBlob for', filename);
+      const filename = images[currentIndex];
       const blob = await ApiClient.getImageBlob(filename);
-      console.log('App.loadCurrentImage: Received blob, creating object URL');
       const url = URL.createObjectURL(blob);
-      console.log('App.loadCurrentImage: Created URL:', url.substring(0, 50) + '...');
       setCurrentImageUrl(url);
-      console.log('App.loadCurrentImage: Successfully set currentImageUrl');
     } catch (err) {
-      console.error('App.loadCurrentImage: Error loading image', filename, ':', err);
-      console.error('App.loadCurrentImage: Error type:', typeof err);
-      console.error('App.loadCurrentImage: Error message:', err instanceof Error ? err.message : String(err));
       setError(`Failed to load image: ${images[currentIndex]}`);
       console.error('Failed to load image:', err);
     }
@@ -125,10 +102,7 @@ function App(): React.JSX.Element {
   const currentFilename = images[currentIndex] || '';
   const remainingCount = images.length;
 
-  console.log('App render: loading =', loading, ', error =', error, ', images.length =', images.length);
-
   if (loading && images.length === 0) {
-    console.log('App render: Showing loading screen');
     return (
       <div className="app">
         <div className="loading">Loading images...</div>
@@ -137,7 +111,6 @@ function App(): React.JSX.Element {
   }
 
   if (error) {
-    console.log('App render: Showing error screen:', error);
     return (
       <div className="app">
         <div className="error">{error}</div>
@@ -149,7 +122,6 @@ function App(): React.JSX.Element {
   }
 
   if (images.length === 0) {
-    console.log('App render: Showing no images screen');
     return (
       <div className="app">
         <div className="no-images">

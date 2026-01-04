@@ -51,9 +51,7 @@ function App(): React.JSX.Element {
       console.log('App.loadImages: Calling ApiClient.getImages()...');
       const imageList = await ApiClient.getImages();
       console.log('App.loadImages: Received image list:', imageList);
-      // Ensure we always have an array, even if API returns null
-      const safeImageList = imageList || [];
-      setImages(safeImageList);
+      setImages(imageList);
       setCurrentIndex(0);
       console.log('App.loadImages: Successfully set images and currentIndex');
     } catch (err) {
