@@ -1,13 +1,18 @@
-import { Category } from '../store/useSorterStore';
+import { Category } from '../store/useSorterStore'
 
 interface BottomBarProps {
-  categories: Category[];
-  skipShortcut: string;
-  onCategoryClick: (categoryId: string) => void;
-  onSkipClick: () => void;
+  categories: Category[]
+  skipShortcut: string
+  onCategoryClick: (categoryId: string) => void
+  onSkipClick: () => void
 }
 
-export function BottomBar({ categories, skipShortcut, onCategoryClick, onSkipClick }: BottomBarProps) {
+export function BottomBar({
+  categories,
+  skipShortcut,
+  onCategoryClick,
+  onSkipClick
+}: BottomBarProps) {
   return (
     <div className="bg-white border-t border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -56,5 +61,5 @@ export function BottomBar({ categories, skipShortcut, onCategoryClick, onSkipCli
         </div>
       </div>
     </div>
-  );
+  )
 }

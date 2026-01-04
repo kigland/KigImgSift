@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useSorterStore } from './store/useSorterStore';
-import { TopBar } from './components/TopBar';
-import { ImageViewer } from './components/ImageViewer';
-import { BottomBar } from './components/BottomBar';
-import { SettingsModal } from './components/SettingsModal';
+import { useEffect, useState } from 'react'
+import { useSorterStore } from './store/useSorterStore'
+import { TopBar } from './components/TopBar'
+import { ImageViewer } from './components/ImageViewer'
+import { BottomBar } from './components/BottomBar'
+import { SettingsModal } from './components/SettingsModal'
 
 function App(): React.JSX.Element {
   const {
@@ -17,58 +17,65 @@ function App(): React.JSX.Element {
     moveImage,
     skipImage,
     undo,
-    loadConfig,
-  } = useSorterStore();
+    loadConfig
+  } = useSorterStore()
 
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false)
+
+  const handleSettingsClick = (): void => {
+    console.log('Settings button clicked, current showSettings:', showSettings)
+    alert('设置按钮被点击了！') // 临时调试
+    setShowSettings(true)
+    console.log('showSettings set to true')
+  }
 
   // Initialize app
   useEffect(() => {
-    loadConfig();
-    loadImages();
-  }, [loadConfig, loadImages]);
+    loadConfig()
+    loadImages()
+  }, [loadConfig, loadImages])
 
   // Handle keyboard events
   useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (loading || imageList.length === 0) return;
+    const handleKeyPress = (event: KeyboardEvent): void => {
+      if (loading || imageList.length === 0) return
 
       // Handle Ctrl+Z for undo
       if (event.ctrlKey && event.key === 'z') {
-        event.preventDefault();
-        undo();
-        return;
+        event.preventDefault()
+        undo()
+        return
       }
 
       // Handle category shortcuts
-      const category = config.categories.find(c => c.shortcut === event.key);
+      const category = config.categories.find((c) => c.shortcut === event.key)
       if (category) {
-        event.preventDefault();
-        moveImage(category.id);
-        return;
+        event.preventDefault()
+        moveImage(category.id)
+        return
       }
 
       // Handle skip shortcut
       if (event.key === config.skipShortcut) {
-        event.preventDefault();
-        skipImage();
-        return;
+        event.preventDefault()
+        skipImage()
+        return
       }
-    };
+    }
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [loading, imageList.length, config, moveImage, skipImage, undo]);
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [loading, imageList.length, config, moveImage, skipImage, undo])
 
-  const currentFilename = imageList[currentIndex] || '';
-  const progress = imageList.length > 0 ? `${currentIndex + 1} / ${imageList.length}` : '0 / 0';
+  const currentFilename = imageList[currentIndex] || ''
+  const progress = imageList.length > 0 ? `${currentIndex + 1} / ${imageList.length}` : '0 / 0'
 
   if (loading && imageList.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-xl text-gray-600">正在加载图片...</div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -82,7 +89,7 @@ function App(): React.JSX.Element {
           重试
         </button>
       </div>
-    );
+    )
   }
 
   if (imageList.length === 0) {
@@ -101,14 +108,19 @@ function App(): React.JSX.Element {
             刷新
           </button>
           <button
-            onClick={() => setShowSettings(true)}
+            onClick={() => {
+              console.log('Empty state settings button clicked')
+              alert('未找到图片状态下的设置按钮被点击了！')
+              setShowSettings(true)
+            }}
             className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             设置
           </button>
         </div>
+        <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
       </div>
-    );
+    )
   }
 
   return (
@@ -116,7 +128,7 @@ function App(): React.JSX.Element {
       <TopBar
         sourceDir={config.sourceDir}
         progress={progress}
-        onSettingsClick={() => setShowSettings(true)}
+        onSettingsClick={handleSettingsClick}
       />
       <ImageViewer
         filename={currentFilename}
@@ -129,12 +141,9 @@ function App(): React.JSX.Element {
         onCategoryClick={moveImage}
         onSkipClick={skipImage}
       />
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

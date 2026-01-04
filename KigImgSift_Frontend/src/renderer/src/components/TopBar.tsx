@@ -1,8 +1,7 @@
-
 interface TopBarProps {
-  sourceDir: string;
-  progress: string;
-  onSettingsClick: () => void;
+  sourceDir: string
+  progress: string
+  onSettingsClick: () => void
 }
 
 export function TopBar({ sourceDir, progress, onSettingsClick }: TopBarProps) {
@@ -26,5 +25,5 @@ export function TopBar({ sourceDir, progress, onSettingsClick }: TopBarProps) {
         </button>
       </div>
     </div>
-  );
+  )
 }

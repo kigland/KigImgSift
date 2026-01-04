@@ -92,7 +92,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
     if (currentIndex >= imageList.length) return
 
     const filename = imageList[currentIndex]
-    const category = config.categories.find(c => c.id === categoryId)
+    const category = config.categories.find((c) => c.id === categoryId)
     if (!category) return
 
     try {
@@ -109,7 +109,8 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
       // 移除当前图片，更新列表
       const newImageList = imageList.filter((_, index) => index !== currentIndex)
       const newHistory = [...history, historyItem]
-      const newCurrentIndex = currentIndex >= newImageList.length ? Math.max(0, newImageList.length - 1) : currentIndex
+      const newCurrentIndex =
+        currentIndex >= newImageList.length ? Math.max(0, newImageList.length - 1) : currentIndex
 
       set({
         imageList: newImageList,

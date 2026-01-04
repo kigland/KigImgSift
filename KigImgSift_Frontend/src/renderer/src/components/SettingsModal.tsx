@@ -1,83 +1,85 @@
-import { useState, useEffect } from 'react';
-import { useSorterStore, Category } from '../store/useSorterStore';
+import { useState, useEffect } from 'react'
+import { useSorterStore, Category } from '../store/useSorterStore'
 
 interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen: boolean
+  onClose: () => void
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { config, saveConfig, loadImages } = useSorterStore();
-  const [localConfig, setLocalConfig] = useState(config);
-  const [recordingShortcut, setRecordingShortcut] = useState<string | null>(null);
+  const { config, saveConfig, loadImages } = useSorterStore()
+  const [localConfig, setLocalConfig] = useState(config)
+  const [recordingShortcut, setRecordingShortcut] = useState<string | null>(null)
 
   useEffect(() => {
-    setLocalConfig(config);
-  }, [config]);
+    setLocalConfig(config)
+  }, [config])
 
-  if (!isOpen) return null;
+  console.log('SettingsModal render, isOpen:', isOpen)
+
+  if (!isOpen) return null
 
   const handleSave = async () => {
-    await saveConfig(localConfig);
-    await loadImages(); // Reload images in case source dir changed
-    onClose();
-  };
+    await saveConfig(localConfig)
+    await loadImages() // Reload images in case source dir changed
+    onClose()
+  }
 
   const handleAddCategory = () => {
-    if (localConfig.categories.length >= 10) return;
+    if (localConfig.categories.length >= 10) return
 
     const newCategory: Category = {
       id: `category_${Date.now()}`,
       name: '新分类',
       path: '../output/new_category',
-      shortcut: '',
-    };
+      shortcut: ''
+    }
 
     setLocalConfig({
       ...localConfig,
-      categories: [...localConfig.categories, newCategory],
-    });
-  };
+      categories: [...localConfig.categories, newCategory]
+    })
+  }
 
   const handleRemoveCategory = (index: number) => {
-    const newCategories = localConfig.categories.filter((_, i) => i !== index);
+    const newCategories = localConfig.categories.filter((_, i) => i !== index)
     setLocalConfig({
       ...localConfig,
-      categories: newCategories,
-    });
-  };
+      categories: newCategories
+    })
+  }
 
   const handleCategoryChange = (index: number, field: keyof Category, value: string) => {
-    const newCategories = [...localConfig.categories];
-    newCategories[index] = { ...newCategories[index], [field]: value };
+    const newCategories = [...localConfig.categories]
+    newCategories[index] = { ...newCategories[index], [field]: value }
     setLocalConfig({
       ...localConfig,
-      categories: newCategories,
-    });
-  };
+      categories: newCategories
+    })
+  }
 
   const handleShortcutRecord = (categoryId: string) => {
-    setRecordingShortcut(categoryId);
-  };
+    setRecordingShortcut(categoryId)
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!recordingShortcut) return;
+    if (!recordingShortcut) return
 
-    e.preventDefault();
-    const key = e.key;
+    e.preventDefault()
+    const key = e.key
 
     // Update the shortcut for the recording category
-    const newCategories = localConfig.categories.map(cat =>
+    const newCategories = localConfig.categories.map((cat) =>
       cat.id === recordingShortcut ? { ...cat, shortcut: key } : cat
-    );
+    )
 
     setLocalConfig({
       ...localConfig,
-      categories: newCategories,
-    });
+      categories: newCategories
+    })
 
-    setRecordingShortcut(null);
-  };
+    setRecordingShortcut(null)
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -95,9 +97,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="p-6 space-y-6">
           {/* Source Directory */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              源文件夹
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">源文件夹</label>
             <input
               type="text"
               value={localConfig.sourceDir}
@@ -109,9 +109,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {/* Skip Shortcut */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              跳过快捷键
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">跳过快捷键</label>
             <input
               type="text"
               value={localConfig.skipShortcut}
@@ -123,9 +121,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {/* Copy Mode */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              文件操作模式
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">文件操作模式</label>
             <div className="flex items-center gap-4">
               <label className="flex items-center">
                 <input
@@ -150,9 +146,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {localConfig.copyMode
-                ? "文件将被复制到分类文件夹（原文件保留）"
-                : "文件将被移动到分类文件夹（原文件被删除）"
-              }
+                ? '文件将被复制到分类文件夹（原文件保留）'
+                : '文件将被移动到分类文件夹（原文件被删除）'}
             </p>
           </div>
 
@@ -174,7 +169,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             <div className="space-y-3">
               {localConfig.categories.map((category, index) => (
-                <div key={category.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+                <div
+                  key={category.id}
+                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg"
+                >
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">名称</label>
@@ -254,5 +252,5 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         )}
       </div>
     </div>
-  );
+  )
 }
