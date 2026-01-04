@@ -1,13 +1,13 @@
 categories:
     - id: frontal
-      name: 正脸
+      name: 正正常
       path: ../output/frontal
       shortcut: "1"
     - id: side
-      name: 侧脸
+      name: 错误
       path: ../output/side
       shortcut: "2"
-copymode: false
+copymode: true
 port: :12346
 skipshortcut: ' '
 sourcedir: /Users/wuzitong/Downloads/data-0000 (1)
