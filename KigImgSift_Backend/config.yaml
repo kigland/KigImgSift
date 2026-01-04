@@ -1,4 +1,3 @@
-copyMode: false
 categories:
     - id: frontal
       name: 正脸
@@ -8,6 +7,7 @@ categories:
       name: 侧脸
       path: ../output/side
       shortcut: "2"
+copymode: false
 port: :12346
 skipshortcut: ' '
-sourcedir: ../source_images
+sourcedir: /Users/wuzitong/Downloads/data-0000 (1)
