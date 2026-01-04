@@ -11,6 +11,7 @@ lerna-debug.log*
 dist/
 out/
 build/
+output/
 *.tsbuildinfo
 
 # Electron
@@ -37,6 +38,7 @@ build/
 # IDE and editors
 .vscode/
 .idea/
+.history/
 *.swp
 *.swo
 *~
@@ -137,6 +139,7 @@ build/
 *.test
 *.out
 go.work
+KigImgSift_Backend
 
 # Java (if backend uses Java)
 *.class
