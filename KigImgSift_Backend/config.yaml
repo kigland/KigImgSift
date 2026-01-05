@@ -1,12 +1,12 @@
 categories:
     - id: frontal
       name: 完全正脸
-      path: ../output/frontal
-      shortcut: "1"
+      path: /Users/wuzitong/Documents/数据标注/完全正脸
+      shortcut: q
     - id: side
       name: 非完全正脸
-      path: ../output/side
-      shortcut: "2"
+      path: /Users/wuzitong/Documents/数据标注/非完全正脸
+      shortcut: s
 copymode: true
 port: :12346
 skipshortcut: ' '

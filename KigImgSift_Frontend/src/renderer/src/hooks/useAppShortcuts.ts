@@ -39,8 +39,8 @@ function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
 /**
  * 集中管理全局快捷键逻辑
  */
-export const useAppShortcuts = () => {
-  const { loading, imageList, config, moveImage, skipImage, undo } = useSorterStore()
+export const useAppShortcuts = (): void => {
+  const { loading, imageList, config, moveImage, copyToTarget, skipImage, undo } = useSorterStore()
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent): void => {
@@ -61,16 +61,24 @@ export const useAppShortcuts = () => {
         return
       }
 
-      // 3. 分类快捷键
-      const category = config.categories.find((c) => matchShortcut(event, c.shortcut))
+      // 3. 复制目标快捷键（复制到独立文件夹，不跳转）
+      const copyTargets = config.copyTargets || []
+      const copyTarget = copyTargets.find((t) => matchShortcut(event, t.shortcut))
+      if (copyTarget) {
+        event.preventDefault()
+        copyToTarget(copyTarget.path)
+        return
+      }
 
+      // 4. 分类快捷键（正常移动/复制操作）
+      const category = config.categories.find((c) => matchShortcut(event, c.shortcut))
       if (category) {
         event.preventDefault()
         moveImage(category.id)
         return
       }
 
-      // 4. 跳过快捷键
+      // 5. 跳过快捷键
       if (matchShortcut(event, config.skipShortcut)) {
         event.preventDefault()
         skipImage()
@@ -80,5 +88,5 @@ export const useAppShortcuts = () => {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [loading, imageList.length, config, moveImage, skipImage, undo])
+  }, [loading, imageList.length, config, moveImage, copyToTarget, skipImage, undo])
 }

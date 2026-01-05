@@ -197,6 +197,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
           ...prev,
           undoShortcut: shortcutValue
         }))
+      } else if (recordingId.startsWith('copy_')) {
+        // 更新复制目标快捷键
+        setLocalConfig((prev) => ({
+          ...prev,
+          copyTargets: (prev.copyTargets || []).map((t) =>
+            t.id === recordingId ? { ...t, shortcut: shortcutValue } : t
+          )
+        }))
       } else {
         // 更新对应的分类
         setLocalConfig((prev) => ({
@@ -243,6 +251,39 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
     setLocalConfig((prev) => ({
       ...prev,
       categories: prev.categories.filter((_, i) => i !== index)
+    }))
+  }
+
+  // 复制目标管理
+  const handleAddCopyTarget = (): void => {
+    const copyTargets = localConfig.copyTargets || []
+    if (copyTargets.length >= 5) return
+    const newTarget = {
+      id: `copy_${Date.now()}`,
+      name: `复制${copyTargets.length + 1}`,
+      path: `../output/copy/${copyTargets.length + 1}`,
+      shortcut: ''
+    }
+    setLocalConfig((prev) => ({
+      ...prev,
+      copyTargets: [...(prev.copyTargets || []), newTarget]
+    }))
+  }
+
+  const updateCopyTarget = (
+    index: number,
+    field: 'name' | 'path' | 'shortcut',
+    value: string
+  ): void => {
+    const newTargets = [...(localConfig.copyTargets || [])]
+    newTargets[index] = { ...newTargets[index], [field]: value }
+    setLocalConfig((prev) => ({ ...prev, copyTargets: newTargets }))
+  }
+
+  const removeCopyTarget = (index: number): void => {
+    setLocalConfig((prev) => ({
+      ...prev,
+      copyTargets: (prev.copyTargets || []).filter((_, i) => i !== index)
     }))
   }
 
@@ -471,13 +512,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                             目标路径
                           </label>
                           <div className="flex">
-                            <input
-                              type="text"
-                              value={cat.path}
-                              onChange={(e) => updateCategory(idx, 'path', e.target.value)}
+                          <input
+                            type="text"
+                            value={cat.path}
+                            onChange={(e) => updateCategory(idx, 'path', e.target.value)}
                               className="flex-1 min-w-0 bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm font-mono text-gray-600"
-                              aria-label="分类目标路径"
-                            />
+                            aria-label="分类目标路径"
+                          />
                             <button
                               onClick={async () => {
                                 const path = await window.api.selectFolder()
@@ -556,6 +597,121 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                       暂无分类，点击上方按钮添加
                     </div>
                   )}
+                </div>
+
+                {/* 复制目标管理 */}
+                <div className="mt-8 pt-8 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">
+                        复制目标 ({(localConfig.copyTargets || []).length}/5)
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        复制操作不会跳到下一张图片，可用于将图片复制到多个文件夹
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleAddCopyTarget}
+                      disabled={(localConfig.copyTargets || []).length >= 5}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                    >
+                      <PlusIcon />
+                      <span>新增</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(localConfig.copyTargets || []).map((target, idx) => (
+                      <div
+                        key={target.id}
+                        className={`
+                          p-4 rounded-xl border transition-all
+                          ${recordingId === target.id ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-amber-200 bg-amber-50/30 hover:border-amber-300'}
+                        `}
+                      >
+                        <div className="grid grid-cols-12 gap-4 items-end">
+                          <div className="col-span-3">
+                            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
+                              名称
+                            </label>
+                            <input
+                              type="text"
+                              value={target.name}
+                              onChange={(e) => updateCopyTarget(idx, 'name', e.target.value)}
+                              className="w-full bg-transparent border-b border-amber-300 focus:border-amber-500 focus:outline-none py-1 text-sm text-gray-800"
+                              aria-label="复制目标名称"
+                            />
+                          </div>
+
+                          <div className="col-span-5">
+                            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
+                              目标路径
+                            </label>
+                            <div className="flex">
+                              <input
+                                type="text"
+                                value={target.path}
+                                onChange={(e) => updateCopyTarget(idx, 'path', e.target.value)}
+                                className="flex-1 min-w-0 bg-transparent border-b border-amber-300 focus:border-amber-500 focus:outline-none py-1 text-sm font-mono text-gray-600"
+                                aria-label="复制目标路径"
+                              />
+                              <button
+                                onClick={async () => {
+                                  const path = await window.api.selectFolder()
+                                  if (path) updateCopyTarget(idx, 'path', path)
+                                }}
+                                className="ml-2 px-2 text-xs text-amber-600 hover:text-amber-700 hover:underline"
+                              >
+                                浏览
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="col-span-3">
+                            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
+                              快捷键
+                            </label>
+                            <button
+                              onClick={() => setRecordingId(target.id)}
+                              className={`
+                                w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
+                                ${
+                                  recordingId === target.id
+                                    ? 'bg-amber-500 border-amber-500 text-white animate-pulse'
+                                    : 'bg-white border-amber-200 text-gray-700 hover:bg-amber-50'
+                                }
+                              `}
+                            >
+                              {recordingId === target.id ? (
+                                <span>请按键...</span>
+                              ) : (
+                                <>
+                                  <KeyboardIcon size={14} />
+                                  <span>{target.shortcut ? formatShortcut(target.shortcut) : '无'}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="col-span-1 flex justify-end pb-1">
+                            <button
+                              onClick={() => removeCopyTarget(idx)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="删除"
+                            >
+                              <Trash2Icon size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {(localConfig.copyTargets || []).length === 0 && (
+                      <div className="text-center py-8 bg-amber-50/50 rounded-xl border border-dashed border-amber-200 text-gray-500">
+                        暂无复制目标，点击上方按钮添加
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

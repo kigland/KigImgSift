@@ -61,6 +61,19 @@ type UndoResponse struct {
 	Message string `json:"message"`
 }
 
+// CopyRequest represents the request payload for copy-only operations
+type CopyRequest struct {
+	Filename   string `json:"filename"`
+	TargetPath string `json:"targetPath"` // 直接指定目标文件夹路径
+}
+
+// CopyResponse represents the response for copy-only operations
+type CopyResponse struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	TargetPath string `json:"targetPath"` // 复制后的目标路径
+}
+
 // @title			KigImgSift API
 // @version		1.0
 // @description	A powerful image classification tool
@@ -95,6 +108,7 @@ func main() {
 		// Actions
 		v1.POST("/action/move", moveImage)
 		v1.POST("/action/undo", undoImage)
+		v1.POST("/action/copy", copyImageOnly)
 	}
 
 	port := viper.GetString("port")
@@ -485,6 +499,97 @@ func moveImage(c *gin.Context) {
 	c.JSON(http.StatusOK, MoveResponse{
 		Success: true,
 		Message: fmt.Sprintf("File %s to %s", operation, targetCategory.Name),
+	})
+}
+
+// copyImageOnly copies an image file to the specified category directory without removing the source
+//
+//	@Summary		Copy image only
+//	@Description	Copy an image file to a specified category (source file remains, no skip to next)
+//	@Tags			actions
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body	CopyRequest	true	"Copy request"
+//	@Success		200	{object}	CopyResponse
+//	@Router			/action/copy [post]
+func copyImageOnly(c *gin.Context) {
+	var req CopyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, CopyResponse{
+			Success: false,
+			Message: "Invalid request payload",
+		})
+		return
+	}
+
+	if req.TargetPath == "" {
+		c.JSON(http.StatusBadRequest, CopyResponse{
+			Success: false,
+			Message: "Target path is required",
+		})
+		return
+	}
+
+	sourceDir := viper.GetString("sourceDir")
+	sourcePath := filepath.Join(sourceDir, req.Filename)
+	targetPath := filepath.Join(req.TargetPath, req.Filename)
+
+	// Check if source file exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, CopyResponse{
+			Success: false,
+			Message: "Source file not found",
+		})
+		return
+	}
+
+	// Ensure target directory exists
+	if err := os.MkdirAll(req.TargetPath, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, CopyResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to create target directory: %v", err),
+		})
+		return
+	}
+
+	// Handle file conflicts by creating unique names
+	finalTargetPath := targetPath
+	if _, err := os.Stat(targetPath); err == nil {
+		ext := filepath.Ext(req.Filename)
+		name := strings.TrimSuffix(req.Filename, ext)
+		counter := 1
+		for {
+			newName := fmt.Sprintf("%s_%d%s", name, counter, ext)
+			newPath := filepath.Join(req.TargetPath, newName)
+			if _, err := os.Stat(newPath); os.IsNotExist(err) {
+				finalTargetPath = newPath
+				break
+			}
+			counter++
+			if counter > 1000 {
+				c.JSON(http.StatusInternalServerError, CopyResponse{
+					Success: false,
+					Message: "Too many conflicting files",
+				})
+				return
+			}
+		}
+	}
+
+	// Always copy (never move)
+	err := copyFile(sourcePath, finalTargetPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, CopyResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to copy file: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, CopyResponse{
+		Success:    true,
+		Message:    fmt.Sprintf("File copied to %s", req.TargetPath),
+		TargetPath: finalTargetPath,
 	})
 }
 

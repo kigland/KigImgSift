@@ -5,6 +5,14 @@ export interface ImageListResponse {
   images: string[]
 }
 
+// 复制目标配置
+export interface CopyTarget {
+  id: string
+  name: string
+  path: string
+  shortcut: string
+}
+
 export interface ConfigResponse {
   sourceDir: string
   categories: Array<{
@@ -14,6 +22,7 @@ export interface ConfigResponse {
     shortcut: string
     countsAsEffective?: boolean // 是否视为有效筛选
   }>
+  copyTargets?: CopyTarget[] // 复制目标列表
   skipShortcut: string
   undoShortcut?: string // 撤回快捷键，支持组合键格式如 ctrl+z, meta+z
   copyMode: boolean
@@ -40,6 +49,17 @@ export interface UndoRequest {
 export interface UndoResponse {
   success: boolean
   message: string
+}
+
+export interface CopyRequest {
+  filename: string
+  targetPath: string // 直接指定目标路径
+}
+
+export interface CopyResponse {
+  success: boolean
+  message: string
+  targetPath: string
 }
 
 export class ApiClient {
@@ -155,6 +175,52 @@ export class ApiClient {
     } catch (error) {
       console.error(
         'ApiClient.moveImage: Network or parsing error for filename',
+        filename,
+        ':',
+        error
+      )
+      throw error
+    }
+  }
+
+  static async copyImage(filename: string, targetPath: string): Promise<CopyResponse> {
+    const url = `${API_BASE_URL}/action/copy`
+    const requestBody = JSON.stringify({
+      filename,
+      targetPath
+    } as CopyRequest)
+
+    console.log('ApiClient.copyImage: Starting POST request to:', url, 'with body:', requestBody)
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: requestBody
+      })
+
+      console.log('ApiClient.copyImage: Response status:', response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(
+          'ApiClient.copyImage: Response not ok. Status:',
+          response.status,
+          'Body:',
+          errorText
+        )
+        throw new Error(
+          `Failed to copy image: ${response.status} ${response.statusText} - ${errorText}`
+        )
+      }
+
+      const result = await response.json()
+      console.log('ApiClient.copyImage: Success, response:', result)
+      return result
+    } catch (error) {
+      console.error(
+        'ApiClient.copyImage: Network or parsing error for filename',
         filename,
         ':',
         error

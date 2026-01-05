@@ -139,10 +139,30 @@ export function ImageViewer({
   onJumpToIndex,
   totalImages
 }: ImageViewerProps): React.JSX.Element {
-  const { currentIndex, imageList } = useSorterStore()
+  const { currentIndex, imageList, lastAction, clearLastAction } = useSorterStore()
   const { imageUrl, loading, error } = useImageLoader(filename, imageList, currentIndex)
   const [jumpInput, setJumpInput] = useState('')
   const [debugMode, setDebugMode] = useState(false) // 临时调试模式
+  // Toast 显示状态：直接根据 lastAction 的时间戳判断是否显示
+  const [toastVisible, setToastVisible] = useState(false)
+  const lastActionRef = useRef<number>(0)
+
+  // 监听 lastAction 变化，显示 Toast
+  useEffect(() => {
+    if (lastAction && lastAction.timestamp !== lastActionRef.current) {
+      lastActionRef.current = lastAction.timestamp
+      // 使用 requestAnimationFrame 延迟 setState，避免在 effect 中同步调用
+      requestAnimationFrame(() => {
+        setToastVisible(true)
+      })
+      const timer = setTimeout(() => {
+        setToastVisible(false)
+        clearLastAction()
+      }, 1200) // 1.2秒后消失
+      return () => clearTimeout(timer)
+    }
+    return undefined
+  }, [lastAction, clearLastAction])
 
   // 计算当前是第几张（用于 placeholder）
   const displayIndex = currentIndex + 1
@@ -187,6 +207,23 @@ export function ImageViewer({
 
   return (
     <div className="flex-1 relative bg-[#1a1a1a] overflow-hidden group">
+      {/* 操作反馈 Toast */}
+      {toastVisible && lastAction && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div
+            className={`
+              px-6 py-3 rounded-xl shadow-2xl text-lg font-semibold
+              ${lastAction.type === 'category' ? 'bg-blue-500 text-white' : ''}
+              ${lastAction.type === 'copy' ? 'bg-amber-500 text-white' : ''}
+              ${lastAction.type === 'skip' ? 'bg-gray-600 text-white' : ''}
+              ${lastAction.type === 'undo' ? 'bg-purple-500 text-white' : ''}
+            `}
+          >
+            {lastAction.label}
+          </div>
+        </div>
+      )}
+
       {/* 顶部浮动工具栏：只在鼠标悬停在区域上方时变得更明显 */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <div className="bg-black/50 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-3 border border-white/10">

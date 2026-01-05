@@ -17,6 +17,7 @@ function App(): React.JSX.Element {
     loadImages,
     setCurrentIndex,
     moveImage,
+    copyToTarget,
     skipImage,
     loadConfig
   } = useSorterStore()
@@ -108,8 +109,10 @@ function App(): React.JSX.Element {
         />
         <BottomBar
           categories={config.categories}
+          copyTargets={config.copyTargets || []}
           skipShortcut={config.skipShortcut}
           onCategoryClick={moveImage}
+          onCopyClick={copyToTarget}
           onSkipClick={skipImage}
         />
       </>

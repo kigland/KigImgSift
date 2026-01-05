@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiClient, ConfigResponse } from '../api/client'
+import { ApiClient, ConfigResponse, CopyTarget } from '../api/client'
 
 export interface Category {
   id: string
@@ -8,6 +8,9 @@ export interface Category {
   shortcut: string
   countsAsEffective?: boolean // 是否视为有效筛选
 }
+
+// 导出 CopyTarget 类型供其他组件使用
+export type { CopyTarget }
 
 // Use ConfigResponse from API client for consistency
 export type Config = ConfigResponse & {
@@ -45,6 +48,14 @@ const saveCounterToStorage = (count: number): void => {
   }
 }
 
+// 操作反馈类型
+export interface ActionFeedback {
+  type: 'category' | 'copy' | 'skip' | 'undo'
+  label: string
+  id: string // 用于高亮对应按钮
+  timestamp: number
+}
+
 interface SorterStore {
   // 状态
   imageList: string[]
@@ -54,6 +65,9 @@ interface SorterStore {
   loading: boolean
   error: string | null
 
+  // 操作反馈状态
+  lastAction: ActionFeedback | null
+
   // 计数器状态
   effectiveCount: number
   targetReachedShown: boolean // 是否已显示过目标达成提示
@@ -62,11 +76,13 @@ interface SorterStore {
   loadImages: () => Promise<void>
   setCurrentIndex: (index: number) => void
   moveImage: (categoryId: string) => Promise<void>
+  copyToTarget: (targetPath: string) => Promise<void> // 复制到指定路径，不跳转、不移除
   skipImage: () => void
   undo: () => Promise<void>
   loadConfig: () => Promise<void>
   saveConfig: (config: Config) => Promise<void>
   reset: () => void
+  clearLastAction: () => void // 清除操作反馈
 
   // 计数器操作
   clearCounter: () => number // 返回清空前的值，用于撤回
@@ -80,10 +96,14 @@ const defaultConfig: Config = {
     { id: 'frontal', name: '正脸', path: '../output/frontal', shortcut: '1', countsAsEffective: true },
     { id: 'side', name: '侧脸', path: '../output/side', shortcut: '2', countsAsEffective: true }
   ],
+  copyTargets: [
+    { id: 'copy1', name: '复制1', path: '../output/copy/1', shortcut: 'q' },
+    { id: 'copy2', name: '复制2', path: '../output/copy/2', shortcut: 'w' }
+  ],
   skipShortcut: ' ',
-  undoShortcut: 'ctrl+z', // 撤回快捷键，支持组合键格式如 ctrl+z, meta+z
+  undoShortcut: 'ctrl+z',
   copyMode: false,
-  counterTarget: 0 // 0 表示无限制
+  counterTarget: 0
 }
 
 export const useSorterStore = create<SorterStore>((set, get) => ({
@@ -94,6 +114,9 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
   history: [],
   loading: false,
   error: null,
+
+  // 操作反馈初始状态
+  lastAction: null,
 
   // 计数器初始状态（从 localStorage 恢复）
   effectiveCount: loadCounterFromStorage(),
@@ -167,7 +190,13 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
         imageList: newImageList,
         currentIndex: newCurrentIndex,
         history: newHistory,
-        effectiveCount: newEffectiveCount
+        effectiveCount: newEffectiveCount,
+        lastAction: {
+          type: 'category',
+          label: category.name,
+          id: categoryId,
+          timestamp: Date.now()
+        }
       })
 
       console.log(`Moved "${filename}" to ${category.name}`)
@@ -180,11 +209,47 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
     }
   },
 
+  // 复制图片到指定路径（不跳转、不移除、不计入有效筛选）
+  copyToTarget: async (targetPath: string) => {
+    const { imageList, currentIndex, config } = get()
+    if (currentIndex >= imageList.length) return
+
+    const filename = imageList[currentIndex]
+    // 查找对应的复制目标名称
+    const copyTarget = (config.copyTargets || []).find((t) => t.path === targetPath)
+
+    try {
+      await ApiClient.copyImage(filename, targetPath)
+      // 设置操作反馈
+      set({
+        lastAction: {
+          type: 'copy',
+          label: copyTarget?.name || '复制',
+          id: copyTarget?.id || targetPath,
+          timestamp: Date.now()
+        }
+      })
+      console.log(`Copied "${filename}" to ${targetPath}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '复制图片失败'
+      set({ error: errorMessage })
+      console.error(`Failed to copy image: ${errorMessage}`)
+    }
+  },
+
   // 跳过图片
   skipImage: () => {
     const { currentIndex, imageList } = get()
     if (currentIndex < imageList.length - 1) {
-      set({ currentIndex: currentIndex + 1 })
+      set({
+        currentIndex: currentIndex + 1,
+        lastAction: {
+          type: 'skip',
+          label: '跳过',
+          id: '__skip__',
+          timestamp: Date.now()
+        }
+      })
     }
   },
 
@@ -196,28 +261,37 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
       return
     }
 
-    const lastAction = history[history.length - 1]
+    const lastHistoryItem = history[history.length - 1]
     try {
-      await ApiClient.undoMove(lastAction.filename, lastAction.fromPath, lastAction.toPath, lastAction.wasCopied)
+      await ApiClient.undoMove(lastHistoryItem.filename, lastHistoryItem.fromPath, lastHistoryItem.toPath, lastHistoryItem.wasCopied)
 
       // 从历史中移除
       const newHistory = history.slice(0, -1)
 
       // 如果撤销的操作对应的分类视为有效筛选，减少计数器
-      const category = config.categories.find((c) => c.id === lastAction.categoryId)
+      const category = config.categories.find((c) => c.id === lastHistoryItem.categoryId)
       let newEffectiveCount = effectiveCount
       if (category && category.countsAsEffective !== false) {
         newEffectiveCount = Math.max(0, effectiveCount - 1)
         saveCounterToStorage(newEffectiveCount)
       }
 
-      set({ history: newHistory, effectiveCount: newEffectiveCount })
+      set({
+        history: newHistory,
+        effectiveCount: newEffectiveCount,
+        lastAction: {
+          type: 'undo',
+          label: '撤回',
+          id: '__undo__',
+          timestamp: Date.now()
+        }
+      })
 
       // 重新加载图片列表，但保持当前位置或跳转到恢复的图片
       const imageList = await ApiClient.getImages()
 
       // 找到恢复的图片在新列表中的位置
-      const restoredIndex = imageList.indexOf(lastAction.filename)
+      const restoredIndex = imageList.indexOf(lastHistoryItem.filename)
       // 如果找到了恢复的图片，跳转到它；否则保持当前位置
       const newIndex = restoredIndex >= 0 ? restoredIndex : Math.min(currentIndex, imageList.length - 1)
 
@@ -227,7 +301,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
         loading: false
       })
 
-      console.log(`Undid move of "${lastAction.filename}", jumping to index ${newIndex}`)
+      console.log(`Undid move of "${lastHistoryItem.filename}", jumping to index ${newIndex}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '撤销操作失败'
       set({
@@ -271,8 +345,14 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
       currentIndex: 0,
       history: [],
       loading: false,
-      error: null
+      error: null,
+      lastAction: null
     })
+  },
+
+  // 清除操作反馈
+  clearLastAction: () => {
+    set({ lastAction: null })
   },
 
   // 清空计数器，返回清空前的值用于撤回
