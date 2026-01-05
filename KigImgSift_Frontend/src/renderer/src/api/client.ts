@@ -27,6 +27,7 @@ export interface ConfigResponse {
   undoShortcut?: string // 撤回快捷键，支持组合键格式如 ctrl+z, meta+z
   copyMode: boolean
   counterTarget?: number // 计数器目标值，0 表示无限制
+  feedbackDuration?: number // 操作反馈持续时间（毫秒），默认 800
 }
 
 export interface MoveRequest {

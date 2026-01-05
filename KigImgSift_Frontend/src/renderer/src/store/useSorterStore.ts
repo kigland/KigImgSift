@@ -103,7 +103,8 @@ const defaultConfig: Config = {
   skipShortcut: ' ',
   undoShortcut: 'ctrl+z',
   copyMode: false,
-  counterTarget: 0
+  counterTarget: 0,
+  feedbackDuration: 800 // 默认 800 毫秒
 }
 
 export const useSorterStore = create<SorterStore>((set, get) => ({

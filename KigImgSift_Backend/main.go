@@ -29,10 +29,11 @@ type Category struct {
 
 // Config represents the application configuration
 type Config struct {
-	SourceDir    string     `json:"sourceDir" yaml:"sourceDir"`
-	Categories   []Category `json:"categories" yaml:"categories"`
-	SkipShortcut string     `json:"skipShortcut" yaml:"skipShortcut"`
-	CopyMode     bool       `json:"copyMode" yaml:"copyMode"`
+	SourceDir        string     `json:"sourceDir" yaml:"sourceDir"`
+	Categories       []Category `json:"categories" yaml:"categories"`
+	SkipShortcut     string     `json:"skipShortcut" yaml:"skipShortcut"`
+	CopyMode         bool       `json:"copyMode" yaml:"copyMode"`
+	FeedbackDuration *int       `json:"feedbackDuration,omitempty" yaml:"feedbackDuration,omitempty"` // 操作反馈持续时间（毫秒）
 }
 
 // MoveRequest represents the request payload for moving files
@@ -293,6 +294,10 @@ func getConfig(c *gin.Context) {
 		SkipShortcut: viper.GetString("skipShortcut"),
 		CopyMode:     copyMode,
 	}
+	if viper.IsSet("feedbackDuration") {
+		duration := viper.GetInt("feedbackDuration")
+		config.FeedbackDuration = &duration
+	}
 	c.JSON(http.StatusOK, config)
 }
 
@@ -318,6 +323,9 @@ func updateConfig(c *gin.Context) {
 	viper.Set("categories", config.Categories)
 	viper.Set("skipShortcut", config.SkipShortcut)
 	viper.Set("copyMode", config.CopyMode)
+	if config.FeedbackDuration != nil {
+		viper.Set("feedbackDuration", *config.FeedbackDuration)
+	}
 
 	// Save to file
 	saveConfig()

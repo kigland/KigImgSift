@@ -8,6 +8,7 @@ categories:
       path: /Users/wuzitong/Documents/数据标注/非完全正脸
       shortcut: s
 copymode: true
+feedbackduration: 150
 port: :12346
 skipshortcut: ' '
 sourcedir: /Users/wuzitong/Downloads/data-0000 (1)

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, FormEvent } from 'react'
 import { ApiClient } from '../api/client'
 import { useSorterStore } from '../store/useSorterStore'
+import { cn } from '../lib/utils'
 
 // --- 1. 自定义 Hook: 处理图片加载与缓存 ---
 
@@ -139,30 +140,49 @@ export function ImageViewer({
   onJumpToIndex,
   totalImages
 }: ImageViewerProps): React.JSX.Element {
-  const { currentIndex, imageList, lastAction, clearLastAction } = useSorterStore()
+  const { currentIndex, imageList, lastAction, clearLastAction, config } = useSorterStore()
   const { imageUrl, loading, error } = useImageLoader(filename, imageList, currentIndex)
   const [jumpInput, setJumpInput] = useState('')
   const [debugMode, setDebugMode] = useState(false) // 临时调试模式
-  // Toast 显示状态：直接根据 lastAction 的时间戳判断是否显示
-  const [toastVisible, setToastVisible] = useState(false)
-  const lastActionRef = useRef<number>(0)
+  const [isFadingOut, setIsFadingOut] = useState(false)
 
-  // 监听 lastAction 变化，显示 Toast
+  // 获取反馈持续时间（毫秒），默认 800ms
+  const feedbackDuration = config.feedbackDuration || 800
+
+  // 监听 lastAction 变化，实现淡出动画
   useEffect(() => {
-    if (lastAction && lastAction.timestamp !== lastActionRef.current) {
-      lastActionRef.current = lastAction.timestamp
-      // 使用 requestAnimationFrame 延迟 setState，避免在 effect 中同步调用
+    if (lastAction) {
+      // 使用 requestAnimationFrame 延迟 setState
       requestAnimationFrame(() => {
-        setToastVisible(true)
+        setIsFadingOut(false) // 重置淡出状态
       })
-      const timer = setTimeout(() => {
-        setToastVisible(false)
+      // 短暂延迟后立即开始淡出（让用户看到内容）
+      const fadeOutDelay = 150 // 150ms 后开始淡出
+      const fadeOutTimer = setTimeout(() => {
+        setIsFadingOut(true)
+      }, fadeOutDelay)
+
+      // 完全消失后清除
+      const clearTimer = setTimeout(() => {
         clearLastAction()
-      }, 1200) // 1.2秒后消失
-      return () => clearTimeout(timer)
+        requestAnimationFrame(() => {
+          setIsFadingOut(false)
+        })
+      }, feedbackDuration)
+
+      return () => {
+        clearTimeout(fadeOutTimer)
+        clearTimeout(clearTimer)
+      }
+    } else {
+      requestAnimationFrame(() => {
+        setIsFadingOut(false)
+      })
     }
     return undefined
-  }, [lastAction, clearLastAction])
+  }, [lastAction, clearLastAction, feedbackDuration])
+
+  const toastVisible = lastAction !== null
 
   // 计算当前是第几张（用于 placeholder）
   const displayIndex = currentIndex + 1
@@ -209,15 +229,24 @@ export function ImageViewer({
     <div className="flex-1 relative bg-[#1a1a1a] overflow-hidden group">
       {/* 操作反馈 Toast */}
       {toastVisible && lastAction && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div
+          className={cn(
+            'absolute top-16 left-1/2 -translate-x-1/2 z-20',
+            !isFadingOut && 'animate-in fade-in slide-in-from-top-2'
+          )}
+          style={{
+            opacity: isFadingOut ? 0 : 1,
+            transition: `opacity ${Math.max(50, feedbackDuration - 150)}ms ease-out`
+          }}
+        >
           <div
-            className={`
-              px-6 py-3 rounded-xl shadow-2xl text-lg font-semibold
-              ${lastAction.type === 'category' ? 'bg-blue-500 text-white' : ''}
-              ${lastAction.type === 'copy' ? 'bg-amber-500 text-white' : ''}
-              ${lastAction.type === 'skip' ? 'bg-gray-600 text-white' : ''}
-              ${lastAction.type === 'undo' ? 'bg-purple-500 text-white' : ''}
-            `}
+            className={cn(
+              'px-6 py-3 rounded-xl shadow-2xl text-lg font-semibold',
+              lastAction.type === 'category' && 'bg-blue-500 text-white',
+              lastAction.type === 'copy' && 'bg-amber-500 text-white',
+              lastAction.type === 'skip' && 'bg-gray-600 text-white',
+              lastAction.type === 'undo' && 'bg-purple-500 text-white'
+            )}
           >
             {lastAction.label}
           </div>
