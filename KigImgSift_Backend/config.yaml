@@ -6,15 +6,19 @@ categories:
     - id: side
       name: 非完全正脸
       path: /Users/wuzitong/Documents/数据标注/非完全正脸
-      shortcut: s
+      shortcut: d
 copymode: true
 copytargets:
     - id: copy_1767599725833
       name: 复制1
       path: /Users/wuzitong/Documents/数据标注/xp
       shortcut: x
+    - id: copy_1767600527629
+      name: 复制2
+      path: /Users/wuzitong/Documents/数据标注/逆天
+      shortcut: v
 feedbackduration: 150
 port: :12346
 skipshortcut: ' '
-sourcedir: /Users/wuzitong/Downloads/data-0000 (1)
-undoshortcut: meta+y
+sourcedir: /Users/wuzitong/Downloads/data-0001
+undoshortcut: meta+z

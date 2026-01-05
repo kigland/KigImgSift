@@ -57,6 +57,7 @@ export const useAppShortcuts = (): void => {
       const undoShortcut = config.undoShortcut || 'ctrl+z'
       if (matchShortcut(event, undoShortcut)) {
         event.preventDefault()
+        // 调用撤回函数，函数内部会检查是否正在执行
         undo()
         return
       }
