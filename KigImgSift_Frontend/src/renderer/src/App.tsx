@@ -111,6 +111,7 @@ function App(): React.JSX.Element {
           categories={config.categories}
           copyTargets={config.copyTargets || []}
           skipShortcut={config.skipShortcut}
+          undoShortcut={config.undoShortcut}
           onCategoryClick={moveImage}
           onCopyClick={copyToTarget}
           onSkipClick={skipImage}

@@ -22,8 +22,9 @@ export interface HistoryItem {
   fromPath: string
   toPath: string
   timestamp: number
-  categoryId: string // 用于判断是否计入有效筛选
+  categoryId: string // 用于判断是否计入有效筛选，复制操作时为空字符串
   wasCopied: boolean // 是否为复制操作（用于撤回时判断是删除还是移回）
+  isCopyTarget?: boolean // 是否为复制到复制目标的操作（true）还是分类操作（false）
 }
 
 // 计数器持久化 key
@@ -171,7 +172,8 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
         toPath: `${category.path}/${filename}`,
         timestamp: Date.now(),
         categoryId,
-        wasCopied: config.copyMode // 记录是否为复制模式
+        wasCopied: config.copyMode, // 记录是否为复制模式
+        isCopyTarget: false // 分类操作，不是复制到复制目标
       }
 
       // 移除当前图片，更新列表
@@ -212,7 +214,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
   // 复制图片到指定路径（不跳转、不移除、不计入有效筛选）
   copyToTarget: async (targetPath: string) => {
-    const { imageList, currentIndex, config } = get()
+    const { imageList, currentIndex, config, history } = get()
     if (currentIndex >= imageList.length) return
 
     const filename = imageList[currentIndex]
@@ -220,9 +222,23 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
     const copyTarget = (config.copyTargets || []).find((t) => t.path === targetPath)
 
     try {
-      await ApiClient.copyImage(filename, targetPath)
+      const result = await ApiClient.copyImage(filename, targetPath)
+      // 记录历史用于撤回
+      const historyItem: HistoryItem = {
+        filename,
+        fromPath: `${config.sourceDir}/${filename}`,
+        toPath: result.targetPath, // 使用最终的文件路径（可能被重命名）
+        timestamp: Date.now(),
+        categoryId: '', // 复制操作不计入有效筛选
+        wasCopied: true, // 标记为复制操作
+        isCopyTarget: true // 标记为复制到复制目标的操作
+      }
+
+      const newHistory = [...history, historyItem]
+
       // 设置操作反馈
       set({
+        history: newHistory,
         lastAction: {
           type: 'copy',
           label: copyTarget?.name || '复制',
@@ -230,7 +246,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
           timestamp: Date.now()
         }
       })
-      console.log(`Copied "${filename}" to ${targetPath}`)
+      console.log(`Copied "${filename}" to ${result.targetPath}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '复制图片失败'
       set({ error: errorMessage })
@@ -269,12 +285,15 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
       // 从历史中移除
       const newHistory = history.slice(0, -1)
 
-      // 如果撤销的操作对应的分类视为有效筛选，减少计数器
-      const category = config.categories.find((c) => c.id === lastHistoryItem.categoryId)
+      // 如果撤销的操作对应的分类视为有效筛选，减少计数器（复制到复制目标的操作不计入有效筛选）
       let newEffectiveCount = effectiveCount
-      if (category && category.countsAsEffective !== false) {
-        newEffectiveCount = Math.max(0, effectiveCount - 1)
-        saveCounterToStorage(newEffectiveCount)
+      if (!lastHistoryItem.isCopyTarget) {
+        // 只有分类操作才可能影响计数器
+        const category = config.categories.find((c) => c.id === lastHistoryItem.categoryId)
+        if (category && category.countsAsEffective !== false) {
+          newEffectiveCount = Math.max(0, effectiveCount - 1)
+          saveCounterToStorage(newEffectiveCount)
+        }
       }
 
       set({
@@ -288,21 +307,27 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
         }
       })
 
-      // 重新加载图片列表，但保持当前位置或跳转到恢复的图片
-      const imageList = await ApiClient.getImages()
+      // 只有分类操作（非复制到复制目标）才需要重新加载图片列表
+      // 复制到复制目标的操作不改变源文件夹，所以不需要重新加载
+      if (!lastHistoryItem.isCopyTarget) {
+        // 重新加载图片列表，但保持当前位置或跳转到恢复的图片
+        const imageList = await ApiClient.getImages()
 
-      // 找到恢复的图片在新列表中的位置
-      const restoredIndex = imageList.indexOf(lastHistoryItem.filename)
-      // 如果找到了恢复的图片，跳转到它；否则保持当前位置
-      const newIndex = restoredIndex >= 0 ? restoredIndex : Math.min(currentIndex, imageList.length - 1)
+        // 找到恢复的图片在新列表中的位置
+        const restoredIndex = imageList.indexOf(lastHistoryItem.filename)
+        // 如果找到了恢复的图片，跳转到它；否则保持当前位置
+        const newIndex = restoredIndex >= 0 ? restoredIndex : Math.min(currentIndex, imageList.length - 1)
 
-      set({
-        imageList,
-        currentIndex: Math.max(0, newIndex),
-        loading: false
-      })
+        set({
+          imageList,
+          currentIndex: Math.max(0, newIndex),
+          loading: false
+        })
 
-      console.log(`Undid move of "${lastHistoryItem.filename}", jumping to index ${newIndex}`)
+        console.log(`Undid move of "${lastHistoryItem.filename}", jumping to index ${newIndex}`)
+      } else {
+        console.log(`Undid copy of "${lastHistoryItem.filename}"`)
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '撤销操作失败'
       set({

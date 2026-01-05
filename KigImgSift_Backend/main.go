@@ -21,6 +21,15 @@ const (
 
 // Category represents a classification category
 type Category struct {
+	ID                string `json:"id" yaml:"id"`
+	Name              string `json:"name" yaml:"name"`
+	Path              string `json:"path" yaml:"path"`
+	Shortcut          string `json:"shortcut" yaml:"shortcut"`
+	CountsAsEffective *bool  `json:"countsAsEffective,omitempty" yaml:"countsAsEffective,omitempty"` // 是否视为有效筛选
+}
+
+// CopyTarget represents a copy target configuration
+type CopyTarget struct {
 	ID       string `json:"id" yaml:"id"`
 	Name     string `json:"name" yaml:"name"`
 	Path     string `json:"path" yaml:"path"`
@@ -29,11 +38,14 @@ type Category struct {
 
 // Config represents the application configuration
 type Config struct {
-	SourceDir        string     `json:"sourceDir" yaml:"sourceDir"`
-	Categories       []Category `json:"categories" yaml:"categories"`
-	SkipShortcut     string     `json:"skipShortcut" yaml:"skipShortcut"`
-	CopyMode         bool       `json:"copyMode" yaml:"copyMode"`
-	FeedbackDuration *int       `json:"feedbackDuration,omitempty" yaml:"feedbackDuration,omitempty"` // 操作反馈持续时间（毫秒）
+	SourceDir        string       `json:"sourceDir" yaml:"sourceDir"`
+	Categories       []Category   `json:"categories" yaml:"categories"`
+	CopyTargets      []CopyTarget `json:"copyTargets,omitempty" yaml:"copyTargets,omitempty"` // 复制目标列表
+	SkipShortcut     string       `json:"skipShortcut" yaml:"skipShortcut"`
+	UndoShortcut     *string      `json:"undoShortcut,omitempty" yaml:"undoShortcut,omitempty"` // 撤回快捷键
+	CopyMode         bool         `json:"copyMode" yaml:"copyMode"`
+	CounterTarget    *int         `json:"counterTarget,omitempty" yaml:"counterTarget,omitempty"`       // 计数器目标值
+	FeedbackDuration *int         `json:"feedbackDuration,omitempty" yaml:"feedbackDuration,omitempty"` // 操作反馈持续时间（毫秒）
 }
 
 // MoveRequest represents the request payload for moving files
@@ -176,6 +188,13 @@ func createOutputDirs() {
 			fmt.Printf("Warning: Failed to create directory %s: %v\n", category.Path, err)
 		}
 	}
+	// Also create copy target directories
+	copyTargets := getCopyTargets()
+	for _, target := range copyTargets {
+		if err := os.MkdirAll(target.Path, 0755); err != nil {
+			fmt.Printf("Warning: Failed to create copy target directory %s: %v\n", target.Path, err)
+		}
+	}
 }
 
 // getImages scans the source directory and returns a list of image files
@@ -276,6 +295,16 @@ func getImage(c *gin.Context) {
 	io.Copy(c.Writer, file)
 }
 
+// getCopyTargets safely retrieves copy targets from viper config
+func getCopyTargets() []CopyTarget {
+	var copyTargets []CopyTarget
+	if err := viper.UnmarshalKey("copyTargets", &copyTargets); err != nil {
+		fmt.Printf("Warning: Failed to unmarshal copyTargets: %v\n", err)
+		return []CopyTarget{}
+	}
+	return copyTargets
+}
+
 // getConfig returns the current configuration
 //
 //	@Summary		Get configuration
@@ -291,8 +320,17 @@ func getConfig(c *gin.Context) {
 	config := Config{
 		SourceDir:    viper.GetString("sourceDir"),
 		Categories:   getCategories(),
+		CopyTargets:  getCopyTargets(),
 		SkipShortcut: viper.GetString("skipShortcut"),
 		CopyMode:     copyMode,
+	}
+	if viper.IsSet("undoShortcut") {
+		undoShortcut := viper.GetString("undoShortcut")
+		config.UndoShortcut = &undoShortcut
+	}
+	if viper.IsSet("counterTarget") {
+		target := viper.GetInt("counterTarget")
+		config.CounterTarget = &target
 	}
 	if viper.IsSet("feedbackDuration") {
 		duration := viper.GetInt("feedbackDuration")
@@ -321,10 +359,23 @@ func updateConfig(c *gin.Context) {
 	// Update viper config
 	viper.Set("sourceDir", config.SourceDir)
 	viper.Set("categories", config.Categories)
+	viper.Set("copyTargets", config.CopyTargets)
 	viper.Set("skipShortcut", config.SkipShortcut)
 	viper.Set("copyMode", config.CopyMode)
+	if config.UndoShortcut != nil {
+		viper.Set("undoShortcut", *config.UndoShortcut)
+	} else {
+		viper.Set("undoShortcut", nil)
+	}
+	if config.CounterTarget != nil {
+		viper.Set("counterTarget", *config.CounterTarget)
+	} else {
+		viper.Set("counterTarget", nil)
+	}
 	if config.FeedbackDuration != nil {
 		viper.Set("feedbackDuration", *config.FeedbackDuration)
+	} else {
+		viper.Set("feedbackDuration", nil)
 	}
 
 	// Save to file

@@ -5,15 +5,49 @@ interface BottomBarProps {
   categories: Category[]
   copyTargets: CopyTarget[]
   skipShortcut: string
+  undoShortcut?: string
   onCategoryClick: (categoryId: string) => void
   onCopyClick: (targetPath: string) => void
   onSkipClick: () => void
+}
+
+// 格式化单个按键显示
+function formatSingleKey(key: string): string {
+  const specialKeys: Record<string, string> = {
+    ' ': 'Space',
+    Enter: 'Enter',
+    Tab: 'Tab',
+    Escape: 'Esc',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    ctrl: 'Ctrl',
+    meta: '⌘',
+    alt: 'Alt',
+    shift: 'Shift'
+  }
+  return specialKeys[key] || specialKeys[key.toLowerCase()] || key.toUpperCase()
+}
+
+// 格式化快捷键显示，支持组合键（如 ctrl+z → Ctrl + Z）
+function formatShortcut(shortcut: string): string {
+  if (!shortcut) return '无'
+  // 检查是否为组合键格式（包含 +）
+  if (shortcut.includes('+')) {
+    const parts = shortcut.split('+')
+    return parts.map(formatSingleKey).join(' + ')
+  }
+  return formatSingleKey(shortcut)
 }
 
 export function BottomBar({
   categories,
   copyTargets,
   skipShortcut,
+  undoShortcut,
   onCategoryClick,
   onCopyClick,
   onSkipClick
@@ -21,6 +55,8 @@ export function BottomBar({
   const { lastAction } = useSorterStore()
   // 获取当前激活的按钮 ID
   const activeId = lastAction?.id || null
+  // 格式化撤回快捷键显示
+  const displayUndoShortcut = formatShortcut(undoShortcut || 'ctrl+z')
 
   return (
     <div className="bg-white/90 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
@@ -82,7 +118,7 @@ export function BottomBar({
                   : 'text-gray-400'
               )}
             >
-              <KeyCap label="Ctrl + Z" variant={activeId === '__undo__' ? 'undo' : 'neutral'} />
+              <KeyCap label={displayUndoShortcut} variant={activeId === '__undo__' ? 'undo' : 'neutral'} />
               <span className="text-sm font-medium">撤回</span>
             </div>
           </div>
