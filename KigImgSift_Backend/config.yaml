@@ -1,10 +1,10 @@
 categories:
     - id: frontal
-      name: 正正常
+      name: 完全正脸
       path: ../output/frontal
       shortcut: "1"
     - id: side
-      name: 错误
+      name: 非完全正脸
       path: ../output/side
       shortcut: "2"
 copymode: true

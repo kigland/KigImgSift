@@ -15,6 +15,7 @@ export interface ConfigResponse {
     countsAsEffective?: boolean // 是否视为有效筛选
   }>
   skipShortcut: string
+  undoShortcut?: string // 撤回快捷键，支持组合键格式如 ctrl+z, meta+z
   copyMode: boolean
   counterTarget?: number // 计数器目标值，0 表示无限制
 }

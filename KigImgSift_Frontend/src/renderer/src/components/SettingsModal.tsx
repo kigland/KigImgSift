@@ -105,6 +105,49 @@ interface SettingsModalProps {
 
 type TabType = 'general' | 'categories'
 
+// 格式化单个按键显示
+function formatSingleKey(key: string): string {
+  const specialKeys: Record<string, string> = {
+    ' ': 'Space',
+    Enter: 'Enter',
+    Tab: 'Tab',
+    Escape: 'Esc',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    ctrl: 'Ctrl',
+    meta: '⌘',
+    alt: 'Alt',
+    shift: 'Shift'
+  }
+  return specialKeys[key] || specialKeys[key.toLowerCase()] || key.toUpperCase()
+}
+
+// 格式化快捷键显示，支持组合键（如 ctrl+z → Ctrl + Z）
+function formatShortcut(shortcut: string): string {
+  if (!shortcut) return '无'
+  // 检查是否为组合键格式（包含 +）
+  if (shortcut.includes('+')) {
+    const parts = shortcut.split('+')
+    return parts.map(formatSingleKey).join(' + ')
+  }
+  return formatSingleKey(shortcut)
+}
+
+// 从键盘事件构建快捷键字符串
+function buildShortcutString(e: KeyboardEvent): string {
+  const parts: string[] = []
+  if (e.ctrlKey) parts.push('ctrl')
+  if (e.metaKey) parts.push('meta')
+  if (e.altKey) parts.push('alt')
+  if (e.shiftKey) parts.push('shift')
+  parts.push(e.key.toLowerCase())
+  return parts.join('+')
+}
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JSX.Element | null {
   const { config, saveConfig, loadImages } = useSorterStore()
 
@@ -139,18 +182,27 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
       // 忽略单纯的修饰键按下
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return
 
-      // 如果是跳过快捷键
+      // 构建快捷键字符串（支持组合键）
+      const hasModifier = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey
+      const shortcutValue = hasModifier ? buildShortcutString(e) : key
+
+      // 根据录制 ID 更新对应的快捷键
       if (recordingId === '__skip__') {
         setLocalConfig((prev) => ({
           ...prev,
-          skipShortcut: key
+          skipShortcut: shortcutValue
+        }))
+      } else if (recordingId === '__undo__') {
+        setLocalConfig((prev) => ({
+          ...prev,
+          undoShortcut: shortcutValue
         }))
       } else {
         // 更新对应的分类
         setLocalConfig((prev) => ({
           ...prev,
           categories: prev.categories.map((cat) =>
-            cat.id === recordingId ? { ...cat, shortcut: key } : cat
+            cat.id === recordingId ? { ...cat, shortcut: shortcutValue } : cat
           )
         }))
       }
@@ -265,10 +317,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                 </Section>
 
                 <Section title="快捷键与行为">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        跳过当前图片 (快捷键)
+                        跳过当前图片
                       </label>
                       <button
                         onClick={() => setRecordingId('__skip__')}
@@ -286,7 +338,32 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                         ) : (
                           <>
                             <KeyboardIcon size={14} />
-                            <span>{localConfig.skipShortcut || '无'}</span>
+                            <span>{formatShortcut(localConfig.skipShortcut)}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        撤回操作
+                      </label>
+                      <button
+                        onClick={() => setRecordingId('__undo__')}
+                        className={`
+                          w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all
+                          ${
+                            recordingId === '__undo__'
+                              ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
+                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }
+                        `}
+                      >
+                        {recordingId === '__undo__' ? (
+                          <span>请按键...</span>
+                        ) : (
+                          <>
+                            <KeyboardIcon size={14} />
+                            <span>{formatShortcut(localConfig.undoShortcut || 'ctrl+z')}</span>
                           </>
                         )}
                       </button>
@@ -299,21 +376,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                         <ModeButton
                           active={!localConfig.copyMode}
                           onClick={() => setLocalConfig({ ...localConfig, copyMode: false })}
-                          label="移动 (Move)"
+                          label="移动"
                         />
                         <ModeButton
                           active={localConfig.copyMode}
                           onClick={() => setLocalConfig({ ...localConfig, copyMode: true })}
-                          label="复制 (Copy)"
+                          label="复制"
                         />
                       </div>
                       <p className="text-xs text-gray-500 mt-2">
                         {localConfig.copyMode
-                          ? '原文件将保留在源文件夹中。'
-                          : '原文件将从源文件夹移除。'}
+                          ? '原文件保留在源文件夹'
+                          : '原文件从源文件夹移除'}
                       </p>
                     </div>
                   </div>
+                  <p className="text-xs text-gray-400 mt-4">
+                    💡 提示：点击按钮后按下键盘即可录制快捷键，支持组合键（如 Ctrl+Z, ⌘+S）
+                  </p>
                 </Section>
 
                 <Section title="筛选计数器">
@@ -390,13 +470,27 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                           <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
                             目标路径
                           </label>
-                          <input
-                            type="text"
-                            value={cat.path}
-                            onChange={(e) => updateCategory(idx, 'path', e.target.value)}
-                            className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm font-mono text-gray-600"
-                            aria-label="分类目标路径"
-                          />
+                          <div className="flex">
+                            <input
+                              type="text"
+                              value={cat.path}
+                              onChange={(e) => updateCategory(idx, 'path', e.target.value)}
+                              className="flex-1 min-w-0 bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm font-mono text-gray-600"
+                              aria-label="分类目标路径"
+                            />
+                            <button
+                              onClick={async () => {
+                                const path = await window.api.selectFolder()
+                                if (path) {
+                                  updateCategory(idx, 'path', path)
+                                }
+                              }}
+                              className="ml-2 px-2 text-xs text-blue-600 hover:text-blue-700 hover:underline transition-colors whitespace-nowrap"
+                              title="浏览文件夹"
+                            >
+                              浏览
+                            </button>
+                          </div>
                         </div>
 
                         {/* 3. Shortcut */}
@@ -420,7 +514,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                             ) : (
                               <>
                                 <KeyboardIcon size={14} />
-                                <span>{cat.shortcut ? cat.shortcut.toUpperCase() : '无'}</span>
+                                <span>{cat.shortcut ? formatShortcut(cat.shortcut) : '无'}</span>
                               </>
                             )}
                           </button>

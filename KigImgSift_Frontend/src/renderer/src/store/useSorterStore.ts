@@ -81,6 +81,7 @@ const defaultConfig: Config = {
     { id: 'side', name: '侧脸', path: '../output/side', shortcut: '2', countsAsEffective: true }
   ],
   skipShortcut: ' ',
+  undoShortcut: 'ctrl+z', // 撤回快捷键，支持组合键格式如 ctrl+z, meta+z
   copyMode: false,
   counterTarget: 0 // 0 表示无限制
 }
