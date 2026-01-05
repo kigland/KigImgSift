@@ -33,6 +33,7 @@ export interface UndoRequest {
   filename: string
   fromPath: string
   toPath: string
+  wasCopied?: boolean // 如果是复制模式，撤回时应删除副本而不是移回
 }
 
 export interface UndoResponse {
@@ -161,12 +162,13 @@ export class ApiClient {
     }
   }
 
-  static async undoMove(filename: string, fromPath: string, toPath: string): Promise<UndoResponse> {
+  static async undoMove(filename: string, fromPath: string, toPath: string, wasCopied?: boolean): Promise<UndoResponse> {
     const url = `${API_BASE_URL}/action/undo`
     const requestBody = JSON.stringify({
       filename,
       fromPath,
-      toPath
+      toPath,
+      wasCopied
     } as UndoRequest)
 
     console.log('ApiClient.undoMove: Starting POST request to:', url, 'with body:', requestBody)

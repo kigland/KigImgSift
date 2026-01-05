@@ -20,6 +20,7 @@ export interface HistoryItem {
   toPath: string
   timestamp: number
   categoryId: string // 用于判断是否计入有效筛选
+  wasCopied: boolean // 是否为复制操作（用于撤回时判断是删除还是移回）
 }
 
 // 计数器持久化 key
@@ -144,7 +145,8 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
         fromPath: `${config.sourceDir}/${filename}`,
         toPath: `${category.path}/${filename}`,
         timestamp: Date.now(),
-        categoryId
+        categoryId,
+        wasCopied: config.copyMode // 记录是否为复制模式
       }
 
       // 移除当前图片，更新列表
@@ -187,7 +189,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
   // 撤回操作
   undo: async () => {
-    const { history, config, effectiveCount } = get()
+    const { history, config, effectiveCount, currentIndex } = get()
     if (history.length === 0) {
       console.warn('No actions to undo')
       return
@@ -195,9 +197,9 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
     const lastAction = history[history.length - 1]
     try {
-      await ApiClient.undoMove(lastAction.filename, lastAction.fromPath, lastAction.toPath)
+      await ApiClient.undoMove(lastAction.filename, lastAction.fromPath, lastAction.toPath, lastAction.wasCopied)
 
-      // 从历史中移除，并重新加载图片列表
+      // 从历史中移除
       const newHistory = history.slice(0, -1)
 
       // 如果撤销的操作对应的分类视为有效筛选，减少计数器
@@ -210,10 +212,21 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
       set({ history: newHistory, effectiveCount: newEffectiveCount })
 
-      // 重新加载图片列表
-      await get().loadImages()
+      // 重新加载图片列表，但保持当前位置或跳转到恢复的图片
+      const imageList = await ApiClient.getImages()
 
-      console.log(`Undid move of "${lastAction.filename}"`)
+      // 找到恢复的图片在新列表中的位置
+      const restoredIndex = imageList.indexOf(lastAction.filename)
+      // 如果找到了恢复的图片，跳转到它；否则保持当前位置
+      const newIndex = restoredIndex >= 0 ? restoredIndex : Math.min(currentIndex, imageList.length - 1)
+
+      set({
+        imageList,
+        currentIndex: Math.max(0, newIndex),
+        loading: false
+      })
+
+      console.log(`Undid move of "${lastAction.filename}", jumping to index ${newIndex}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '撤销操作失败'
       set({

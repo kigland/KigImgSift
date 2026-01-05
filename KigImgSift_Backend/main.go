@@ -49,9 +49,10 @@ type MoveResponse struct {
 
 // UndoRequest represents the request payload for undo operations
 type UndoRequest struct {
-	Filename string `json:"filename"`
-	FromPath string `json:"fromPath"`
-	ToPath   string `json:"toPath"`
+	Filename  string `json:"filename"`
+	FromPath  string `json:"fromPath"`
+	ToPath    string `json:"toPath"`
+	WasCopied bool   `json:"wasCopied"` // 如果是复制模式，撤回时应删除副本而不是移回
 }
 
 // UndoResponse represents the response for undo operations
@@ -516,6 +517,24 @@ func undoImage(c *gin.Context) {
 		return
 	}
 
+	// 如果是复制模式，只需删除分类文件夹中的副本
+	if req.WasCopied {
+		err := os.Remove(req.ToPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, UndoResponse{
+				Success: false,
+				Message: fmt.Sprintf("Failed to delete copied file: %v", err),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, UndoResponse{
+			Success: true,
+			Message: "Copy operation undone (file deleted)",
+		})
+		return
+	}
+
+	// 移动模式：将文件移回原位置
 	// Ensure destination directory exists
 	destDir := filepath.Dir(req.FromPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -526,28 +545,13 @@ func undoImage(c *gin.Context) {
 		return
 	}
 
-	// Check if destination already exists (shouldn't happen in normal undo)
+	// Check if destination already exists (shouldn't happen in normal undo for move mode)
 	if _, err := os.Stat(req.FromPath); err == nil {
-		// If destination exists, create a unique name for undo
-		ext := filepath.Ext(req.Filename)
-		name := strings.TrimSuffix(req.Filename, ext)
-		counter := 1
-		for {
-			newName := fmt.Sprintf("%s_undo_%d%s", name, counter, ext)
-			newPath := filepath.Join(destDir, newName)
-			if _, err := os.Stat(newPath); os.IsNotExist(err) {
-				req.FromPath = newPath
-				break
-			}
-			counter++
-			if counter > 100 { // Prevent infinite loop
-				c.JSON(http.StatusInternalServerError, UndoResponse{
-					Success: false,
-					Message: "Too many conflicting undo files",
-				})
-				return
-			}
-		}
+		c.JSON(http.StatusConflict, UndoResponse{
+			Success: false,
+			Message: "Original file already exists in source folder",
+		})
+		return
 	}
 
 	// Move the file back

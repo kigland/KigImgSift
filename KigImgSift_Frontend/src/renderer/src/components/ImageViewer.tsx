@@ -205,7 +205,7 @@ export function ImageViewer({
       </div>
 
       {/* 图片展示区域 - 使用绝对定位确保图片完整显示 */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      <div className="absolute inset-0 flex items-center justify-center p-[2px]">
         {loading || (filename && !imageUrl && !error) ? (
           <div className="flex flex-col items-center gap-3">
             {/* 简单的 CSS Loader */}
@@ -238,21 +238,21 @@ export function ImageViewer({
             <div className="text-xs mt-1 opacity-75">文件名: {filename}</div>
           </div>
         ) : imageUrl ? (
-          <img
-            key={imageUrl} // Key 变化会触发淡入动画
-            src={imageUrl}
-            alt={filename}
-            className="max-w-full max-h-full object-contain shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-            draggable={false} // 防止拖拽图片
-            onError={(e) => {
-              console.error('Image failed to load:', imageUrl)
-              // 如果图片加载失败，显示错误状态
-              e.currentTarget.style.display = 'none'
-            }}
-            onLoad={() => {
-              console.log('Image loaded successfully:', imageUrl)
-            }}
-          />
+            <img
+              key={imageUrl} // Key 变化会触发淡入动画
+              src={imageUrl}
+              alt={filename}
+              className="max-w-full max-h-full object-contain shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+              draggable={false} // 防止拖拽图片
+              onError={(e) => {
+                console.error('Image failed to load:', imageUrl)
+                // 如果图片加载失败，显示错误状态
+                e.currentTarget.style.display = 'none'
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully:', imageUrl)
+              }}
+            />
         ) : (
           <div className="flex flex-col items-center gap-2 text-yellow-400 bg-yellow-900/20 px-6 py-4 rounded-lg border border-yellow-900/50">
             <span>无图片URL</span>
