@@ -139,13 +139,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
       // 忽略单纯的修饰键按下
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return
 
-      // 更新对应的分类
-      setLocalConfig((prev) => ({
-        ...prev,
-        categories: prev.categories.map((cat) =>
-          cat.id === recordingId ? { ...cat, shortcut: key } : cat
-        )
-      }))
+      // 如果是跳过快捷键
+      if (recordingId === '__skip__') {
+        setLocalConfig((prev) => ({
+          ...prev,
+          skipShortcut: key
+        }))
+      } else {
+        // 更新对应的分类
+        setLocalConfig((prev) => ({
+          ...prev,
+          categories: prev.categories.map((cat) =>
+            cat.id === recordingId ? { ...cat, shortcut: key } : cat
+          )
+        }))
+      }
 
       setRecordingId(null) // 结束录制
     }
@@ -238,11 +246,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                       onChange={(e) =>
                         setLocalConfig({ ...localConfig, sourceDir: e.target.value })
                       }
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow text-gray-800"
                       placeholder="/path/to/images"
                     />
-                    {/* TODO: 以后接入 Electron dialog */}
-                    {/* <button className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200">浏览...</button> */}
+                    <button
+                      onClick={async () => {
+                        const path = await window.api.selectFolder()
+                        if (path) {
+                          setLocalConfig({ ...localConfig, sourceDir: path })
+                        }
+                      }}
+                      className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 text-gray-700 transition-colors flex items-center gap-2"
+                    >
+                      <FolderInputIcon size={16} />
+                      浏览...
+                    </button>
                   </div>
                 </Section>
 
@@ -252,15 +270,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         跳过当前图片 (快捷键)
                       </label>
-                      <input
-                        type="text"
-                        value={localConfig.skipShortcut}
-                        onChange={(e) =>
-                          setLocalConfig({ ...localConfig, skipShortcut: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder="Space"
-                      />
+                      <button
+                        onClick={() => setRecordingId('__skip__')}
+                        className={`
+                          w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all
+                          ${
+                            recordingId === '__skip__'
+                              ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
+                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }
+                        `}
+                      >
+                        {recordingId === '__skip__' ? (
+                          <span>请按键...</span>
+                        ) : (
+                          <>
+                            <KeyboardIcon size={14} />
+                            <span>{localConfig.skipShortcut || '无'}</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -282,6 +311,32 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                         {localConfig.copyMode
                           ? '原文件将保留在源文件夹中。'
                           : '原文件将从源文件夹移除。'}
+                      </p>
+                    </div>
+                  </div>
+                </Section>
+
+                <Section title="筛选计数器">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        目标值 (0 表示无限制)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={localConfig.counterTarget || 0}
+                        onChange={(e) =>
+                          setLocalConfig({
+                            ...localConfig,
+                            counterTarget: Math.max(0, parseInt(e.target.value) || 0)
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-800"
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        达到目标值后会弹窗提醒，但计数器可以继续增加
                       </p>
                     </div>
                   </div>
@@ -311,74 +366,93 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps): React.JS
                     <div
                       key={cat.id}
                       className={`
-                        grid grid-cols-12 gap-4 items-end p-4 rounded-xl border transition-all
+                        p-4 rounded-xl border transition-all
                         ${recordingId === cat.id ? 'border-blue-500 bg-blue-50 shadow-md scale-[1.01]' : 'border-gray-200 bg-white hover:border-gray-300'}
                       `}
                     >
-                      {/* 1. Name */}
-                      <div className="col-span-3">
-                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
-                          名称
-                        </label>
-                        <input
-                          type="text"
-                          value={cat.name}
-                          onChange={(e) => updateCategory(idx, 'name', e.target.value)}
-                          className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm"
-                          aria-label="分类名称"
-                        />
+                      <div className="grid grid-cols-12 gap-4 items-end">
+                        {/* 1. Name */}
+                        <div className="col-span-3">
+                          <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
+                            名称
+                          </label>
+                          <input
+                            type="text"
+                            value={cat.name}
+                            onChange={(e) => updateCategory(idx, 'name', e.target.value)}
+                            className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm text-gray-800"
+                            aria-label="分类名称"
+                          />
+                        </div>
+
+                        {/* 2. Path */}
+                        <div className="col-span-5">
+                          <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
+                            目标路径
+                          </label>
+                          <input
+                            type="text"
+                            value={cat.path}
+                            onChange={(e) => updateCategory(idx, 'path', e.target.value)}
+                            className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm font-mono text-gray-600"
+                            aria-label="分类目标路径"
+                          />
+                        </div>
+
+                        {/* 3. Shortcut */}
+                        <div className="col-span-3">
+                          <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
+                            快捷键
+                          </label>
+                          <button
+                            onClick={() => setRecordingId(cat.id)}
+                            className={`
+                              w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
+                              ${
+                                recordingId === cat.id
+                                  ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
+                                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                              }
+                            `}
+                          >
+                            {recordingId === cat.id ? (
+                              <span>请按键...</span>
+                            ) : (
+                              <>
+                                <KeyboardIcon size={14} />
+                                <span>{cat.shortcut ? cat.shortcut.toUpperCase() : '无'}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* 4. Delete */}
+                        <div className="col-span-1 flex justify-end pb-1">
+                          <button
+                            onClick={() => removeCategory(idx)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="删除分类"
+                          >
+                            <Trash2Icon size={18} />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* 2. Path */}
-                      <div className="col-span-5">
-                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
-                          目标路径
+                      {/* 视为有效筛选选项 */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cat.countsAsEffective !== false}
+                            onChange={(e) => {
+                              const newCats = [...localConfig.categories]
+                              newCats[idx] = { ...newCats[idx], countsAsEffective: e.target.checked }
+                              setLocalConfig((prev) => ({ ...prev, categories: newCats }))
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-600">视为有效筛选</span>
                         </label>
-                        <input
-                          type="text"
-                          value={cat.path}
-                          onChange={(e) => updateCategory(idx, 'path', e.target.value)}
-                          className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 focus:outline-none py-1 text-sm font-mono text-gray-600"
-                          aria-label="分类目标路径"
-                        />
-                      </div>
-
-                      {/* 3. Shortcut */}
-                      <div className="col-span-3">
-                        <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">
-                          快捷键
-                        </label>
-                        <button
-                          onClick={() => setRecordingId(cat.id)}
-                          className={`
-                            w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
-                            ${
-                              recordingId === cat.id
-                                ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
-                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                            }
-                          `}
-                        >
-                          {recordingId === cat.id ? (
-                            <span>请按键...</span>
-                          ) : (
-                            <>
-                              <KeyboardIcon size={14} />
-                              <span>{cat.shortcut ? cat.shortcut.toUpperCase() : '无'}</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      {/* 4. Delete */}
-                      <div className="col-span-1 flex justify-end pb-1">
-                        <button
-                          onClick={() => removeCategory(idx)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="删除分类"
-                        >
-                          <Trash2Icon size={18} />
-                        </button>
                       </div>
                     </div>
                   ))}

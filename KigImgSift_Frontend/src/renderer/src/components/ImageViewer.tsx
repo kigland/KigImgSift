@@ -186,7 +186,7 @@ export function ImageViewer({
   }
 
   return (
-    <div className="flex-1 relative flex flex-col bg-[#1a1a1a] overflow-hidden group">
+    <div className="flex-1 relative bg-[#1a1a1a] overflow-hidden group">
       {/* 顶部浮动工具栏：只在鼠标悬停在区域上方时变得更明显 */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <div className="bg-black/50 backdrop-blur-md text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-3 border border-white/10">
@@ -204,8 +204,8 @@ export function ImageViewer({
         </div>
       </div>
 
-      {/* 图片展示区域 */}
-      <div className="flex-1 flex items-center justify-center p-4 w-full h-full">
+      {/* 图片展示区域 - 使用绝对定位确保图片完整显示 */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
         {loading || (filename && !imageUrl && !error) ? (
           <div className="flex flex-col items-center gap-3">
             {/* 简单的 CSS Loader */}
@@ -238,32 +238,21 @@ export function ImageViewer({
             <div className="text-xs mt-1 opacity-75">文件名: {filename}</div>
           </div>
         ) : imageUrl ? (
-          <div className="flex flex-col items-center gap-2">
-            <img
-              key={imageUrl} // Key 变化会触发淡入动画
-              src={imageUrl}
-              alt={filename}
-              className="max-w-full max-h-full object-contain shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-              draggable={false} // 防止拖拽图片
-              onError={(e) => {
-                console.error('Image failed to load:', imageUrl)
-                // 如果图片加载失败，显示错误状态
-                e.currentTarget.style.display = 'none'
-              }}
-              onLoad={() => {
-                console.log('Image loaded successfully:', imageUrl)
-              }}
-            />
-            <div className="text-xs text-white/50 mt-2">
-              {filename} (
-              {imageUrl.startsWith('blob:')
-                ? '本地'
-                : imageUrl.startsWith('https://')
-                  ? '网络'
-                  : '未知'}
-              )
-            </div>
-          </div>
+          <img
+            key={imageUrl} // Key 变化会触发淡入动画
+            src={imageUrl}
+            alt={filename}
+            className="max-w-full max-h-full object-contain shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            draggable={false} // 防止拖拽图片
+            onError={(e) => {
+              console.error('Image failed to load:', imageUrl)
+              // 如果图片加载失败，显示错误状态
+              e.currentTarget.style.display = 'none'
+            }}
+            onLoad={() => {
+              console.log('Image loaded successfully:', imageUrl)
+            }}
+          />
         ) : (
           <div className="flex flex-col items-center gap-2 text-yellow-400 bg-yellow-900/20 px-6 py-4 rounded-lg border border-yellow-900/50">
             <span>无图片URL</span>

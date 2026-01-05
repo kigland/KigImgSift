@@ -6,16 +6,42 @@ export interface Category {
   name: string
   path: string
   shortcut: string
+  countsAsEffective?: boolean // 是否视为有效筛选
 }
 
 // Use ConfigResponse from API client for consistency
-export type Config = ConfigResponse
+export type Config = ConfigResponse & {
+  counterTarget?: number // 计数器目标值，0 表示无限制
+}
 
 export interface HistoryItem {
   filename: string
   fromPath: string
   toPath: string
   timestamp: number
+  categoryId: string // 用于判断是否计入有效筛选
+}
+
+// 计数器持久化 key
+const COUNTER_STORAGE_KEY = 'kigimgsift_effective_count'
+
+// 从 localStorage 读取计数器
+const loadCounterFromStorage = (): number => {
+  try {
+    const stored = localStorage.getItem(COUNTER_STORAGE_KEY)
+    return stored ? parseInt(stored, 10) : 0
+  } catch {
+    return 0
+  }
+}
+
+// 保存计数器到 localStorage
+const saveCounterToStorage = (count: number): void => {
+  try {
+    localStorage.setItem(COUNTER_STORAGE_KEY, String(count))
+  } catch {
+    console.warn('Failed to save counter to localStorage')
+  }
 }
 
 interface SorterStore {
@@ -27,6 +53,10 @@ interface SorterStore {
   loading: boolean
   error: string | null
 
+  // 计数器状态
+  effectiveCount: number
+  targetReachedShown: boolean // 是否已显示过目标达成提示
+
   // 操作
   loadImages: () => Promise<void>
   setCurrentIndex: (index: number) => void
@@ -36,16 +66,22 @@ interface SorterStore {
   loadConfig: () => Promise<void>
   saveConfig: (config: Config) => Promise<void>
   reset: () => void
+
+  // 计数器操作
+  clearCounter: () => number // 返回清空前的值，用于撤回
+  restoreCounter: (value: number) => void // 撤回清空
+  setTargetReachedShown: (shown: boolean) => void
 }
 
 const defaultConfig: Config = {
   sourceDir: '../source_images',
   categories: [
-    { id: 'frontal', name: '正脸', path: '../output/frontal', shortcut: '1' },
-    { id: 'side', name: '侧脸', path: '../output/side', shortcut: '2' }
+    { id: 'frontal', name: '正脸', path: '../output/frontal', shortcut: '1', countsAsEffective: true },
+    { id: 'side', name: '侧脸', path: '../output/side', shortcut: '2', countsAsEffective: true }
   ],
   skipShortcut: ' ',
-  copyMode: false
+  copyMode: false,
+  counterTarget: 0 // 0 表示无限制
 }
 
 export const useSorterStore = create<SorterStore>((set, get) => ({
@@ -56,6 +92,10 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
   history: [],
   loading: false,
   error: null,
+
+  // 计数器初始状态（从 localStorage 恢复）
+  effectiveCount: loadCounterFromStorage(),
+  targetReachedShown: false,
 
   // 加载图片列表
   loadImages: async () => {
@@ -88,7 +128,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
   // 移动图片到指定分类
   moveImage: async (categoryId: string) => {
-    const { imageList, currentIndex, config, history } = get()
+    const { imageList, currentIndex, config, history, effectiveCount } = get()
     if (currentIndex >= imageList.length) return
 
     const filename = imageList[currentIndex]
@@ -103,7 +143,8 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
         filename,
         fromPath: `${config.sourceDir}/${filename}`,
         toPath: `${category.path}/${filename}`,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        categoryId
       }
 
       // 移除当前图片，更新列表
@@ -112,10 +153,18 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
       const newCurrentIndex =
         currentIndex >= newImageList.length ? Math.max(0, newImageList.length - 1) : currentIndex
 
+      // 如果该分类视为有效筛选，增加计数器
+      let newEffectiveCount = effectiveCount
+      if (category.countsAsEffective !== false) { // 默认为 true
+        newEffectiveCount = effectiveCount + 1
+        saveCounterToStorage(newEffectiveCount)
+      }
+
       set({
         imageList: newImageList,
         currentIndex: newCurrentIndex,
-        history: newHistory
+        history: newHistory,
+        effectiveCount: newEffectiveCount
       })
 
       console.log(`Moved "${filename}" to ${category.name}`)
@@ -138,7 +187,7 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
   // 撤回操作
   undo: async () => {
-    const { history } = get()
+    const { history, config, effectiveCount } = get()
     if (history.length === 0) {
       console.warn('No actions to undo')
       return
@@ -150,7 +199,16 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
 
       // 从历史中移除，并重新加载图片列表
       const newHistory = history.slice(0, -1)
-      set({ history: newHistory })
+
+      // 如果撤销的操作对应的分类视为有效筛选，减少计数器
+      const category = config.categories.find((c) => c.id === lastAction.categoryId)
+      let newEffectiveCount = effectiveCount
+      if (category && category.countsAsEffective !== false) {
+        newEffectiveCount = Math.max(0, effectiveCount - 1)
+        saveCounterToStorage(newEffectiveCount)
+      }
+
+      set({ history: newHistory, effectiveCount: newEffectiveCount })
 
       // 重新加载图片列表
       await get().loadImages()
@@ -201,5 +259,25 @@ export const useSorterStore = create<SorterStore>((set, get) => ({
       loading: false,
       error: null
     })
+  },
+
+  // 清空计数器，返回清空前的值用于撤回
+  clearCounter: () => {
+    const { effectiveCount } = get()
+    const previousValue = effectiveCount
+    saveCounterToStorage(0)
+    set({ effectiveCount: 0, targetReachedShown: false })
+    return previousValue
+  },
+
+  // 恢复计数器（用于撤回清空操作）
+  restoreCounter: (value: number) => {
+    saveCounterToStorage(value)
+    set({ effectiveCount: value })
+  },
+
+  // 设置目标达成提示是否已显示
+  setTargetReachedShown: (shown: boolean) => {
+    set({ targetReachedShown: shown })
   }
 }))

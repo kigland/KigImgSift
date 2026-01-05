@@ -12,9 +12,11 @@ export interface ConfigResponse {
     name: string
     path: string
     shortcut: string
+    countsAsEffective?: boolean // 是否视为有效筛选
   }>
   skipShortcut: string
   copyMode: boolean
+  counterTarget?: number // 计数器目标值，0 表示无限制
 }
 
 export interface MoveRequest {
